@@ -1,1 +1,562 @@
-Full index.html from /home/workdir/artifacts/msd-sim-repo/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSD Ops Simulator v2.0 • Clean Workflow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', system_ui, sans-serif; }
+        .state-pill { font-size: 10px; padding: 1px 7px; border-radius: 9999px; white-space: nowrap; }
+        .log-entry { font-size: 11px; line-height: 1.3; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200">
+    <!-- Top Navigation -->
+    <nav class="border-b border-slate-800 bg-slate-900">
+        <div class="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-x-3">
+                <div class="w-9 h-9 bg-emerald-500 rounded-2xl flex items-center justify-center">
+                    <i class="fa-solid fa-microchip text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-semibold text-2xl tracking-tighter">MSD Ops Simulator <span class="text-emerald-400">v2.0</span></h1>
+                    <p class="text-xs text-slate-400 -mt-1">Timer-driven state machine • Cursor-friendly</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-x-3">
+                <button onclick="toggleSimulation()" id="play-btn"
+                        class="flex items-center gap-x-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-sm font-medium transition-all">
+                    <i class="fa-solid fa-play mr-2" id="play-icon"></i>
+                    <span id="play-text">Start</span>
+                </button>
+                <button onclick="resetSimulation()" class="px-4 py-2 text-sm font-medium hover:bg-slate-800 rounded-2xl border border-slate-700 flex items-center gap-x-2">
+                    <i class="fa-solid fa-undo"></i>
+                    <span>Reset</span>
+                </button>
+                <div class="flex items-center gap-x-2 text-sm ml-3">
+                    <span class="text-slate-400 text-xs">SPEED</span>
+                    <input type="range" id="speed" min="1" max="12" value="5" class="w-24 accent-emerald-500" oninput="updateSpeed()">
+                    <span id="speed-val" class="font-mono w-8 text-emerald-400 font-semibold">5x</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-screen-2xl mx-auto px-6 pt-6 pb-10">
+        <!-- Metrics Row -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-4">
+                <div class="text-xs text-slate-400 tracking-wider">MISSIONS COMPLETED</div>
+                <div id="missions" class="text-4xl font-semibold tabular-nums">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-4">
+                <div class="text-xs text-slate-400 tracking-wider">LOADED & READY</div>
+                <div id="loaded" class="text-4xl font-semibold text-emerald-400 tabular-nums">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-4">
+                <div class="text-xs text-slate-400 tracking-wider">OFFLOAD QUEUE</div>
+                <div id="offload-q" class="text-4xl font-semibold text-amber-400 tabular-nums">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-4">
+                <div class="text-xs text-slate-400 tracking-wider">LOADING QUEUE</div>
+                <div id="loading-q" class="text-4xl font-semibold text-violet-400 tabular-nums">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-4">
+                <div class="text-xs text-slate-400 tracking-wider">VEHICLES IN MISSION</div>
+                <div id="in-mission" class="text-4xl font-semibold text-blue-400 tabular-nums">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl p-4">
+                <div class="text-xs text-slate-400 tracking-wider">VEHICLES WAITING (NO DEVICES)</div>
+                <div id="waiting" class="text-4xl font-semibold text-red-400 tabular-nums">0</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            
+            <!-- Configuration -->
+            <div class="xl:col-span-5 bg-slate-900 border border-slate-700 rounded-3xl p-5">
+                <h3 class="font-semibold mb-4 flex items-center gap-x-2 text-sm uppercase tracking-widest text-slate-300">
+                    <i class="fa-solid fa-sliders-h"></i> CONFIGURATION
+                </h3>
+                
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><span>Vehicles</span><span id="v-val" class="font-mono text-emerald-400">8</span></div>
+                            <input type="range" id="vehicles" min="2" max="16" value="8" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><span>Pool Size (MSDs)</span><span id="pool-val" class="font-mono text-emerald-400">20</span></div>
+                            <input type="range" id="pool" min="6" max="50" value="20" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><span>Loading Stations</span><span id="load-val" class="font-mono text-emerald-400">2</span></div>
+                            <input type="range" id="loading-stations" min="1" max="5" value="2" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><span>Offload Stations</span><span id="offload-val" class="font-mono text-emerald-400">3</span></div>
+                            <input type="range" id="offload-stations" min="1" max="6" value="3" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 pt-3 border-t border-slate-700">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><span>Mission Duration (ticks)</span><span id="mission-val" class="font-mono text-emerald-400">40</span></div>
+                            <input type="range" id="mission" min="15" max="90" value="40" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1"><span>Process Time (ticks)</span><span id="process-val" class="font-mono text-emerald-400">15</span></div>
+                            <input type="range" id="process" min="5" max="40" value="15" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-slate-700 text-[10px] text-slate-400">
+                    All values are live. The simulation uses these directly from the <code class="text-emerald-400">config</code> object.
+                </div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="xl:col-span-7 bg-slate-900 border border-slate-700 rounded-3xl p-5 flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold text-sm flex items-center gap-x-2">
+                        <i class="fa-solid fa-list-ul"></i> EVENT LOG
+                    </h3>
+                    <button onclick="clearLog()" class="text-xs px-3 py-1 hover:bg-slate-800 rounded-lg">Clear</button>
+                </div>
+                <div id="log" class="flex-1 overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono h-[210px]"></div>
+            </div>
+
+            <!-- Device State Summary -->
+            <div class="xl:col-span-12 bg-slate-900 border border-slate-700 rounded-3xl p-5">
+                <h3 class="font-semibold mb-3 text-sm">DEVICE STATE SUMMARY</h3>
+                <div id="states" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-11 gap-2 text-xs"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // MSD OPS SIMULATOR v2.0
+        // Timer-driven state machine. Explicit queues. Cursor-friendly.
+        // ============================================================
+
+        // ------------------ STATE DEFINITIONS ------------------
+        const STATES = {
+            READY: 'READY',
+            QUEUED_LOADING: 'QUEUED_LOADING',
+            LOADING: 'LOADING',
+            LOADED: 'LOADED',
+            ASSIGNED: 'ASSIGNED',
+            INSTALLED: 'INSTALLED',
+            ON_MISSION: 'ON_MISSION',
+            MISSION_DONE: 'MISSION_DONE',
+            QUEUED_OFFLOAD: 'QUEUED_OFFLOAD',
+            OFFLOADING: 'OFFLOADING',
+            SANITIZED: 'SANITIZED'
+        };
+
+        // ------------------ GLOBAL STATE ------------------
+        let devices = [];
+        let vehicles = [];
+        let loadingStations = [];
+        let offloadStations = [];
+        let loadingQueue = [];
+        let offloadQueue = [];
+
+        let simTick = 0;
+        let running = false;
+        let speed = 5;
+        let missionsCompleted = 0;
+        let totalMissionsStarted = 0;
+
+        let config = {
+            numVehicles: 8,
+            totalDevices: 20,
+            numLoadingStations: 2,
+            numOffloadStations: 3,
+            missionDuration: 40,
+            processTime: 15
+        };
+
+        // ------------------ INITIALIZATION ------------------
+        function init() {
+            resetSimulationState();
+            updateUI();
+            addLog("v2.0 initialized. All state changes are timer-driven.", "system");
+        }
+
+        function resetSimulationState() {
+            simTick = 0;
+            missionsCompleted = 0;
+            totalMissionsStarted = 0;
+            loadingQueue = [];
+            offloadQueue = [];
+
+            // Create devices
+            devices = [];
+            for (let i = 0; i < config.totalDevices; i++) {
+                devices.push({
+                    id: i + 1,
+                    state: STATES.READY,
+                    timer: 0,
+                    vehicleId: null,
+                    slotIndex: null
+                });
+            }
+
+            // Create vehicles (hardcoded 2-port USB hubs)
+            vehicles = [];
+            for (let i = 0; i < config.numVehicles; i++) {
+                vehicles.push({
+                    id: i + 1,
+                    slots: [null, null],
+                    inMission: false,
+                    missionEndTick: 0
+                });
+            }
+
+            // Create stations
+            loadingStations = Array.from({ length: config.numLoadingStations }, (_, i) => ({
+                id: i + 1, currentDeviceId: null, busyUntil: 0
+            }));
+
+            offloadStations = Array.from({ length: config.numOffloadStations }, (_, i) => ({
+                id: i + 1, currentDeviceId: null, busyUntil: 0
+            }));
+        }
+
+        // ------------------ MAIN SIMULATION TICK ------------------
+        function tick() {
+            if (!running) return;
+
+            simTick++;
+
+            // Order matters — process stations first, then move devices
+            processLoadingStations();
+            processOffloadStations();
+
+            queueReadyDevicesForLoading();
+            assignLoadedDevicesToVehicles();
+            startMissionsWherePossible();
+            endFinishedMissions();
+            queueFinishedDevicesForOffload();
+
+            updateUI();
+
+            const delay = Math.max(55, 380 - (speed * 26));
+            setTimeout(tick, delay);
+        }
+
+        // ------------------ STATION PROCESSING (TIMER DRIVEN) ------------------
+        function processLoadingStations() {
+            loadingStations.forEach(station => {
+                // Pull from queue if free
+                if (station.currentDeviceId === null && loadingQueue.length > 0) {
+                    const deviceId = loadingQueue.shift();
+                    const device = devices.find(d => d.id === deviceId);
+                    if (device) {
+                        station.currentDeviceId = deviceId;
+                        station.busyUntil = simTick + config.processTime;
+                        device.state = STATES.LOADING;
+                        device.timer = station.busyUntil;
+                        addLog(`Device #${deviceId} → LOADING at Station ${station.id}`, "loading");
+                    }
+                }
+
+                // Finish loading
+                if (station.currentDeviceId !== null && simTick >= station.busyUntil) {
+                    const device = devices.find(d => d.id === station.currentDeviceId);
+                    if (device) {
+                        device.state = STATES.LOADED;
+                        device.timer = 0;
+                        addLog(`Device #${device.id} finished LOADING → LOADED`, "success");
+                    }
+                    station.currentDeviceId = null;
+                }
+            });
+        }
+
+        function processOffloadStations() {
+            offloadStations.forEach(station => {
+                if (station.currentDeviceId === null && offloadQueue.length > 0) {
+                    const deviceId = offloadQueue.shift();
+                    const device = devices.find(d => d.id === deviceId);
+                    if (device) {
+                        station.currentDeviceId = deviceId;
+                        station.busyUntil = simTick + config.processTime;
+                        device.state = STATES.OFFLOADING;
+                        addLog(`Device #${deviceId} → OFFLOADING at Station ${station.id}`, "offload");
+                    }
+                }
+
+                if (station.currentDeviceId !== null && simTick >= station.busyUntil) {
+                    const device = devices.find(d => d.id === station.currentDeviceId);
+                    if (device) {
+                        device.state = STATES.SANITIZED;
+                        addLog(`Device #${device.id} OFFLOAD + SANITIZE complete → READY`, "success");
+                        // Immediately return to READY to keep cycle going
+                        setTimeout(() => {
+                            if (device.state === STATES.SANITIZED) device.state = STATES.READY;
+                        }, 60);
+                    }
+                    station.currentDeviceId = null;
+                }
+            });
+        }
+
+        // ------------------ QUEUE & ASSIGNMENT LOGIC ------------------
+        function queueReadyDevicesForLoading() {
+            devices.forEach(device => {
+                if (device.state === STATES.READY && !loadingQueue.includes(device.id)) {
+                    loadingQueue.push(device.id);
+                    device.state = STATES.QUEUED_LOADING;
+                }
+            });
+        }
+
+        function assignLoadedDevicesToVehicles() {
+            const available = devices.filter(d => d.state === STATES.LOADED && d.vehicleId === null);
+            if (available.length === 0) return;
+
+            vehicles.forEach(vehicle => {
+                if (vehicle.inMission) return;
+
+                const freeSlots = vehicle.slots.map((s, i) => s === null ? i : -1).filter(i => i !== -1);
+
+                freeSlots.forEach(slotIdx => {
+                    if (available.length === 0) return;
+                    const device = available.shift();
+
+                    device.state = STATES.ASSIGNED;
+                    device.vehicleId = vehicle.id;
+                    device.slotIndex = slotIdx;
+
+                    // Immediately install (v2 keeps logic simple)
+                    vehicle.slots[slotIdx] = device.id;
+                    device.state = STATES.INSTALLED;
+
+                    addLog(`Device #${device.id} INSTALLED in Vehicle ${vehicle.id} (port ${slotIdx + 1})`, "assign");
+                });
+            });
+        }
+
+        function startMissionsWherePossible() {
+            vehicles.forEach(vehicle => {
+                if (vehicle.inMission) return;
+                const hasDevice = vehicle.slots.some(s => s !== null);
+                if (!hasDevice) return;
+
+                vehicle.inMission = true;
+                vehicle.missionEndTick = simTick + config.missionDuration;
+
+                vehicle.slots.forEach(devId => {
+                    if (devId) {
+                        const d = devices.find(x => x.id === devId);
+                        if (d) d.state = STATES.ON_MISSION;
+                    }
+                });
+
+                totalMissionsStarted++;
+                addLog(`Vehicle ${vehicle.id} started MISSION`, "mission");
+            });
+        }
+
+        function endFinishedMissions() {
+            vehicles.forEach(vehicle => {
+                if (!vehicle.inMission || simTick < vehicle.missionEndTick) return;
+
+                vehicle.inMission = false;
+
+                vehicle.slots.forEach(devId => {
+                    if (devId) {
+                        const device = devices.find(d => d.id === devId);
+                        if (device) {
+                            device.state = STATES.MISSION_DONE;
+                            device.vehicleId = null;
+                            device.slotIndex = null;
+                        }
+                    }
+                });
+                vehicle.slots = [null, null];
+                missionsCompleted++;
+                addLog(`Vehicle ${vehicle.id} MISSION COMPLETE`, "mission");
+            });
+        }
+
+        function queueFinishedDevicesForOffload() {
+            devices.forEach(device => {
+                if (device.state === STATES.MISSION_DONE && !offloadQueue.includes(device.id)) {
+                    offloadQueue.push(device.id);
+                    device.state = STATES.QUEUED_OFFLOAD;
+                }
+            });
+        }
+
+        // ------------------ UI UPDATES ------------------
+        function updateUI() {
+            document.getElementById('missions').textContent = missionsCompleted;
+
+            const loadedCount = devices.filter(d => d.state === STATES.LOADED).length;
+            document.getElementById('loaded').textContent = loadedCount;
+
+            const offQ = devices.filter(d => d.state === STATES.QUEUED_OFFLOAD || d.state === STATES.OFFLOADING).length;
+            document.getElementById('offload-q').textContent = offQ;
+
+            const loadQ = devices.filter(d => d.state === STATES.QUEUED_LOADING || d.state === STATES.LOADING).length;
+            document.getElementById('loading-q').textContent = loadQ;
+
+            const inMissionCount = vehicles.filter(v => v.inMission).length;
+            document.getElementById('in-mission').textContent = inMissionCount;
+
+            const waitingCount = vehicles.filter(v => !v.inMission && v.slots.every(s => s === null)).length;
+            document.getElementById('waiting').textContent = waitingCount;
+
+            renderStateSummary();
+        }
+
+        function renderStateSummary() {
+            const container = document.getElementById('states');
+            container.innerHTML = '';
+
+            const counts = {};
+            Object.values(STATES).forEach(s => counts[s] = 0);
+            devices.forEach(d => counts[d.state]++);
+
+            Object.values(STATES).forEach(state => {
+                const count = counts[state] || 0;
+                if (count === 0) return;
+
+                const div = document.createElement('div');
+                div.className = `flex justify-between items-center px-3 py-1.5 bg-slate-800 rounded-2xl`;
+                div.innerHTML = `
+                    <span class="state-pill ${getStateColorClass(state)}">${state}</span>
+                    <span class="font-mono font-semibold">${count}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function getStateColorClass(state) {
+            if ([STATES.READY, STATES.LOADED, STATES.SANITIZED].includes(state)) return 'bg-emerald-500/20 text-emerald-400';
+            if ([STATES.ON_MISSION, STATES.INSTALLED].includes(state)) return 'bg-blue-500/20 text-blue-400';
+            if ([STATES.OFFLOADING, STATES.QUEUED_OFFLOAD, STATES.MISSION_DONE].includes(state)) return 'bg-amber-500/20 text-amber-400';
+            if ([STATES.LOADING, STATES.QUEUED_LOADING].includes(state)) return 'bg-violet-500/20 text-violet-400';
+            return 'bg-slate-500/20 text-slate-400';
+        }
+
+        function addLog(message, type = "info") {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry px-2 py-0.5 flex gap-x-2 ${type === 'success' ? 'text-emerald-400' : type === 'mission' ? 'text-blue-400' : type === 'assign' ? 'text-violet-400' : type === 'offload' || type === 'loading' ? 'text-amber-400' : 'text-slate-400'}`;
+            entry.innerHTML = `<span class="font-mono text-slate-500 w-9">[${String(simTick).padStart(4, '0')}]</span><span>${message}</span>`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+            if (log.children.length > 40) log.removeChild(log.firstChild);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // ------------------ CONFIG & CONTROLS ------------------
+        function updateConfig() {
+            config.numVehicles = parseInt(document.getElementById('vehicles').value);
+            config.totalDevices = parseInt(document.getElementById('pool').value);
+            config.numLoadingStations = parseInt(document.getElementById('loading-stations').value);
+            config.numOffloadStations = parseInt(document.getElementById('offload-stations').value);
+            config.missionDuration = parseInt(document.getElementById('mission').value);
+            config.processTime = parseInt(document.getElementById('process').value);
+
+            // Update labels
+            document.getElementById('v-val').textContent = config.numVehicles;
+            document.getElementById('pool-val').textContent = config.totalDevices;
+            document.getElementById('load-val').textContent = config.numLoadingStations;
+            document.getElementById('offload-val').textContent = config.numOffloadStations;
+            document.getElementById('mission-val').textContent = config.missionDuration;
+            document.getElementById('process-val').textContent = config.processTime;
+        }
+
+        function updateSpeed() {
+            speed = parseInt(document.getElementById('speed').value);
+            document.getElementById('speed-val').textContent = speed + 'x';
+        }
+
+        function toggleSimulation() {
+            running = !running;
+            const btn = document.getElementById('play-btn');
+            const icon = document.getElementById('play-icon');
+            const text = document.getElementById('play-text');
+
+            if (running) {
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                btn.classList.add('bg-red-600', 'hover:bg-red-500');
+                icon.classList.remove('fa-play');
+                icon.classList.add('fa-pause');
+                text.textContent = 'Pause';
+                addLog("Simulation started", "system");
+                tick();
+            } else {
+                btn.classList.remove('bg-red-600', 'hover:bg-red-500');
+                btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                icon.classList.remove('fa-pause');
+                icon.classList.add('fa-play');
+                text.textContent = 'Start';
+                addLog("Simulation paused", "system");
+            }
+        }
+
+        function resetSimulation() {
+            const wasRunning = running;
+            if (wasRunning) toggleSimulation();
+
+            resetSimulationState();
+            document.getElementById('log').innerHTML = '';
+            updateUI();
+            addLog("Simulation reset with current configuration.", "system");
+
+            if (wasRunning) setTimeout(() => toggleSimulation(), 120);
+        }
+
+        // ------------------ BOOTSTRAP ------------------
+        function bootstrap() {
+            // Set initial slider values
+            const ids = ['vehicles', 'pool', 'loading-stations', 'offload-stations', 'mission', 'process'];
+            const vals = [config.numVehicles, config.totalDevices, config.numLoadingStations, config.numOffloadStations, config.missionDuration, config.processTime];
+            ids.forEach((id, i) => {
+                document.getElementById(id).value = vals[i];
+            });
+
+            // Initial labels
+            document.getElementById('v-val').textContent = config.numVehicles;
+            document.getElementById('pool-val').textContent = config.totalDevices;
+            document.getElementById('load-val').textContent = config.numLoadingStations;
+            document.getElementById('offload-val').textContent = config.numOffloadStations;
+            document.getElementById('mission-val').textContent = config.missionDuration;
+            document.getElementById('process-val').textContent = config.processTime;
+
+            init();
+
+            // Seed a few loaded devices so the simulation has something to do immediately
+            setTimeout(() => {
+                let seeded = 0;
+                devices.forEach(d => {
+                    if (seeded < 5 && d.state === STATES.READY) {
+                        d.state = STATES.LOADED;
+                        seeded++;
+                    }
+                });
+                updateUI();
+            }, 250);
+        }
+
+        window.onload = bootstrap;
+    </script>
+</body>
+</html>
