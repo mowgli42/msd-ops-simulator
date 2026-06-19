@@ -1,1 +1,1 @@
-README content
+Full README content from file
