@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "msd_ops_simulator",
+  "project_id": "7d71cc7b-7531-4644-afed-540711bcc776"
+}
