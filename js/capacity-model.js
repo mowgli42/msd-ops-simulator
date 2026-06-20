@@ -33,23 +33,32 @@
         return Math.max(1, Math.ceil(lambdaRate / (mu * utilizationTarget)));
     }
 
+    function effectiveOffloadHours(params) {
+        if (params.highDataVolumeMode) {
+            return params.missionDurationHours * params.offloadFactor;
+        }
+        return params.offloadTimeHours;
+    }
+
     function analyze(params) {
         const notes = [];
         const lambdaRate =
             (params.vehicles * params.missionsPerVehiclePerDay) / params.operatingHoursPerDay;
-        const mu = params.processTimeHours > 0 ? 1 / params.processTimeHours : Infinity;
+        const muLoad = params.loadTimeHours > 0 ? 1 / params.loadTimeHours : Infinity;
+        const offloadH = effectiveOffloadHours(params);
+        const muOffload = offloadH > 0 ? 1 / offloadH : Infinity;
 
-        const rhoL = params.loadingStations > 0 ? lambdaRate / (params.loadingStations * mu) : Infinity;
-        const rhoO = params.offloadStations > 0 ? lambdaRate / (params.offloadStations * mu) : Infinity;
+        const rhoL = params.loadingStations > 0 ? lambdaRate / (params.loadingStations * muLoad) : Infinity;
+        const rhoO = params.offloadStations > 0 ? lambdaRate / (params.offloadStations * muOffload) : Infinity;
 
-        const pwL = erlangC(lambdaRate, mu, params.loadingStations);
-        const pwO = erlangC(lambdaRate, mu, params.offloadStations);
+        const pwL = erlangC(lambdaRate, muLoad, params.loadingStations);
+        const pwO = erlangC(lambdaRate, muOffload, params.offloadStations);
 
-        const wqL = meanWaitHours(lambdaRate, mu, params.loadingStations);
-        const wqO = meanWaitHours(lambdaRate, mu, params.offloadStations);
+        const wqL = meanWaitHours(lambdaRate, muLoad, params.loadingStations);
+        const wqO = meanWaitHours(lambdaRate, muOffload, params.offloadStations);
 
-        const wLoad = (Number.isFinite(wqL) ? wqL : Infinity) + params.processTimeHours;
-        const wOffload = (Number.isFinite(wqO) ? wqO : Infinity) + params.processTimeHours;
+        const wLoad = (Number.isFinite(wqL) ? wqL : Infinity) + params.loadTimeHours;
+        const wOffload = (Number.isFinite(wqO) ? wqO : Infinity) + offloadH;
         const cycle = wLoad + params.missionDurationHours + wOffload;
 
         const devicesRequired = Number.isFinite(cycle) ? lambdaRate * cycle : Infinity;
@@ -61,8 +70,8 @@
                 : deviceFloor
         );
 
-        const sLMin = stationsRequired(lambdaRate, mu, params.utilizationTarget);
-        const sOMin = stationsRequired(lambdaRate, mu, params.utilizationTarget);
+        const sLMin = stationsRequired(lambdaRate, muLoad, params.utilizationTarget);
+        const sOMin = stationsRequired(lambdaRate, muOffload, params.utilizationTarget);
 
         const loadingStable = rhoL < 1;
         const offloadStable = rhoO < 1;
@@ -93,6 +102,7 @@
             offloadUtilization: round(rhoO, 4),
             loadingWaitProb: round(pwL, 4),
             offloadWaitProb: round(pwO, 4),
+            effectiveOffloadHours: round(offloadH, 4),
             cycleTimeHours: round(cycle, 4),
             devicesRequired: round(devicesRequired, 2),
             devicesRecommended: devicesRec,
@@ -107,11 +117,14 @@
 
     function paramsFromSim(config, shared) {
         const tph = shared.ticksPerHour || 20;
+        const highData = config.highDataVolumeMode || false;
+        const offloadFactor = config.offloadFactor != null ? config.offloadFactor : 0.9;
         return {
             vehicles: config.numVehicles,
             missionsPerVehiclePerDay: config.missionsPerVehiclePerDay,
             missionDurationHours: config.missionDuration / tph,
-            processTimeHours: config.processTime / tph,
+            loadTimeHours: config.loadTime / tph,
+            offloadTimeHours: config.offloadTime / tph,
             portsPerVehicle: shared.portsPerVehicle || 2,
             loadingStations: config.numLoadingStations,
             offloadStations: config.numOffloadStations,
@@ -119,7 +132,44 @@
             operatingHoursPerDay: shared.operatingHoursPerDay || 24,
             utilizationTarget: shared.utilizationTarget || 0.85,
             deviceBufferFraction: shared.deviceBufferFraction || 0.1,
+            highDataVolumeMode: highData,
+            offloadFactor,
         };
+    }
+
+    function effectiveOffloadTicks(config) {
+        if (config.highDataVolumeMode) {
+            return Math.max(1, Math.round(config.missionDuration * (config.offloadFactor || 0.9)));
+        }
+        return config.offloadTime;
+    }
+
+    function iterOffloadSensitivity(params, options) {
+        const stationsRange = options?.offloadStationsRange || [1, 2, 3, 4, 5, 6];
+        const pctValues = options?.offloadPctValues || [0.5, 0.7, 0.9, 1.0, 1.2];
+        const rows = [];
+        stationsRange.forEach((stations) => {
+            pctValues.forEach((pct) => {
+                const rowParams = {
+                    ...params,
+                    offloadStations: stations,
+                    highDataVolumeMode: false,
+                    offloadTimeHours: params.missionDurationHours * pct,
+                };
+                const result = analyze(rowParams);
+                rows.push({
+                    offloadStations: stations,
+                    offloadPct: pct,
+                    offloadTimeHours: round(rowParams.offloadTimeHours, 2),
+                    rhoLoad: result.loadingUtilization,
+                    rhoOffload: result.offloadUtilization,
+                    bottleneck: result.bottleneck,
+                    devicesRecommended: result.devicesRecommended,
+                    offloadStationsMin: result.offloadStationsMin,
+                });
+            });
+        });
+        return rows;
     }
 
     function inferObservedBottleneck(metrics) {
@@ -137,6 +187,8 @@
     global.MsdCapacityModel = {
         analyze,
         paramsFromSim,
+        effectiveOffloadTicks,
+        iterOffloadSensitivity,
         inferObservedBottleneck,
         erlangC,
     };

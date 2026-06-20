@@ -12,14 +12,14 @@ The simulator deliberately uses a **strict, explicit, timer-driven state machine
 |----------------------|----------------------------------------------|-------------------------------------------|-------------------------------------------|---------------------------|------------------|
 | `READY`              | Device is sanitized and available in the pool | End of sanitization or initial state     | Enters `QUEUED_LOADING` when there is capacity | Indefinite               | Starting state for most devices |
 | `QUEUED_LOADING`     | Waiting in line for a loading station        | `READY` devices are periodically moved here | Loading station pulls it                  | Variable (queue length)  | Explicit queue prevents devices getting lost |
-| `LOADING`            | Being loaded with maps + threats + procedures at a loading station | Pulled from loading queue by a free station | Timer expires (`processTime`)             | `config.processTime`     | This represents "prep with current intel" |
+| `LOADING`            | Being loaded with maps + threats + procedures at a loading station | Pulled from loading queue by a free station | Timer expires (`loadTime`)             | `config.loadTime`     | This represents "prep with current intel" |
 | `LOADED`             | Has valid current mission data               | Finished `LOADING`                        | Assigned to a vehicle with a free port    | Until assigned           | Only `LOADED` devices can be assigned |
 | `ASSIGNED`           | Temporarily assigned to a vehicle            | Matched to a free vehicle slot            | Immediately transitions to `INSTALLED`    | Instant (in v2)          | Kept for future animation extensibility |
 | `INSTALLED`          | Physically in one of the vehicle's 2 USB ports | Arrived at vehicle                        | Vehicle starts mission                    | Until mission starts     | Vehicle can have max 2 |
 | `ON_MISSION`         | Vehicle is operating with this device        | Vehicle decides to start a mission        | Mission timer expires                     | `config.missionDuration` | Vehicle must have ≥1 device to start |
 | `MISSION_DONE`       | Mission finished, device released            | Vehicle mission timer expires             | Moved to offload queue                    | Instant                  | Device is now "dirty" with recorded data |
 | `QUEUED_OFFLOAD`     | Waiting for an offload station               | Moved from `MISSION_DONE`                 | Offload station pulls it                  | Variable                 | Second major queue in the system |
-| `OFFLOADING`         | Data being extracted + device being sanitized | Pulled by offload station                 | Timer expires (`processTime`)             | `config.processTime`     | Critical bottleneck in high-tempo ops |
+| `OFFLOADING`         | Data being extracted + device being sanitized | Pulled by offload station                 | Timer expires (`offloadTime` or mission × factor in high-data mode) | `effectiveOffloadTicks()` | Critical bottleneck in high-tempo / video ops |
 | `SANITIZED`          | Offload + security/compliance complete       | Finished `OFFLOADING`                     | Immediately returns to `READY`            | Very short               | Cycle complete — repeatable |
 
 ## Key Rules Enforced by the Simulator

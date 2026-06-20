@@ -35,3 +35,14 @@ cases:
       offload_stations: 1
       loading_stations: 3
       device_pool: 50
+
+  - name: high_video_offload
+    operations:
+      vehicles: 8
+      missions_per_vehicle_per_day: 4
+      offload_stations: 1
+      loading_stations: 3
+      device_pool: 40
+    modes:
+      high_data_volume: true
+      offload_factor: 0.9

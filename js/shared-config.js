@@ -6,6 +6,10 @@ window.MSD_SHARED_CONFIG = {
   "utilizationTarget": 0.85,
   "deviceBufferFraction": 0.1,
   "portsPerVehicle": 2,
+  "modes": {
+    "highDataVolume": false,
+    "offloadFactor": 0.9
+  },
   "simDefaults": {
     "numVehicles": 8,
     "totalDevices": 20,
@@ -13,10 +17,14 @@ window.MSD_SHARED_CONFIG = {
     "numOffloadStations": 3,
     "missionsPerVehiclePerDay": 3.0,
     "missionDuration": 40,
-    "processTime": 10
+    "loadTime": 10,
+    "offloadTime": 10,
+    "highDataVolumeMode": false,
+    "offloadFactor": 0.9
   },
   "durationsHours": {
     "mission": 2.0,
-    "process": 0.5
+    "load": 0.5,
+    "offload": 0.5
   }
 };

@@ -20,6 +20,8 @@ def test_baseline_yaml_loads():
     assert cfg.scenario_id == "baseline"
     assert cfg.ticks_per_hour == 20
     assert cfg.mission_duration_ticks == 40
+    assert cfg.load_time_ticks == 10
+    assert cfg.offload_time_ticks == 10
     assert cfg.process_time_ticks == 10
 
 
@@ -39,7 +41,8 @@ def test_ops_from_sim_sliders_matches_yaml_analysis():
         loading_stations=cfg.loading_stations,
         offload_stations=cfg.offload_stations,
         mission_ticks=cfg.mission_duration_ticks,
-        process_ticks=cfg.process_time_ticks,
+        load_ticks=cfg.load_time_ticks,
+        offload_ticks=cfg.offload_time_ticks,
         ticks_per_hour=cfg.ticks_per_hour,
         operating_hours_per_day=cfg.operating_hours_per_day,
         utilization_target=cfg.utilization_target,
@@ -50,6 +53,11 @@ def test_ops_from_sim_sliders_matches_yaml_analysis():
     r_sim = analyze(params_sim)
     assert r_yaml.bottleneck == r_sim.bottleneck
     assert r_yaml.devices_recommended == r_sim.devices_recommended
+
+
+def test_high_data_effective_offload_ticks():
+    cfg = load_shared_config(BASELINE)
+    assert cfg.effective_offload_ticks() == cfg.offload_time_ticks
 
 
 def test_cli_config_flag():

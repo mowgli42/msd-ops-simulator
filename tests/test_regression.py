@@ -35,7 +35,8 @@ def test_baseline_sim_reaches_steady_low_queues():
         num_loading_stations=cfg.loading_stations,
         num_offload_stations=cfg.offload_stations,
         mission_duration=cfg.mission_duration_ticks,
-        process_time=cfg.process_time_ticks,
+        load_time=cfg.load_time_ticks,
+        offload_time=cfg.offload_time_ticks,
         missions_per_vehicle_per_day=cfg.missions_per_vehicle_per_day,
         ticks_per_hour=cfg.ticks_per_hour,
         operating_hours_per_day=cfg.operating_hours_per_day,
@@ -51,7 +52,8 @@ def test_offload_saturated_sim_matches_prediction():
     params = OpsParameters(
         vehicles=10,
         missions_per_vehicle_per_day=8,
-        process_time_hours=0.5,
+        load_time_hours=0.5,
+        offload_time_hours=0.5,
         loading_stations=2,
         offload_stations=1,
         device_pool=40,
@@ -66,7 +68,8 @@ def test_offload_saturated_sim_matches_prediction():
             num_loading_stations=2,
             num_offload_stations=1,
             mission_duration=40,
-            process_time=10,
+            load_time=10,
+            offload_time=10,
         )
     )
     result = engine.run_until_steady()

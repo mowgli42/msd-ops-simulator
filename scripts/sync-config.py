@@ -32,6 +32,10 @@ def main() -> int:
         "utilizationTarget": cfg.utilization_target,
         "deviceBufferFraction": cfg.device_buffer_fraction,
         "portsPerVehicle": cfg.ports_per_vehicle,
+        "modes": {
+            "highDataVolume": cfg.high_data_volume_mode,
+            "offloadFactor": cfg.offload_factor,
+        },
         "simDefaults": {
             "numVehicles": cfg.vehicles,
             "totalDevices": cfg.device_pool,
@@ -39,11 +43,15 @@ def main() -> int:
             "numOffloadStations": cfg.offload_stations,
             "missionsPerVehiclePerDay": cfg.missions_per_vehicle_per_day,
             "missionDuration": cfg.mission_duration_ticks,
-            "processTime": cfg.process_time_ticks,
+            "loadTime": cfg.load_time_ticks,
+            "offloadTime": cfg.offload_time_ticks,
+            "highDataVolumeMode": cfg.high_data_volume_mode,
+            "offloadFactor": cfg.offload_factor,
         },
         "durationsHours": {
             "mission": cfg.mission_duration_hours,
-            "process": cfg.process_time_hours,
+            "load": cfg.load_time_hours,
+            "offload": cfg.offload_time_hours,
         },
     }
 

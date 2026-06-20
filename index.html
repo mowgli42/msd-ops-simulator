@@ -16,6 +16,11 @@
         .bn-loading { border-color: #8957e5; background: #8957e522; color: #a371f7; }
         .bn-offload { border-color: #d29922; background: #d2992222; color: #e3b341; }
         .bn-devices { border-color: #f85149; background: #f8514922; color: #ff7b72; }
+        .sens-cell { font-size: 10px; padding: 4px 6px; text-align: center; }
+        .sens-bn-offload { background: #d2992233; color: #e3b341; }
+        .sens-bn-loading { background: #8957e533; color: #a371f7; }
+        .sens-bn-devices { background: #f8514933; color: #ff7b72; }
+        .sens-bn-balanced { background: #23863633; color: #3fb950; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
@@ -153,11 +158,35 @@
                         </div>
                         <div>
                             <div class="flex justify-between text-xs mb-1">
-                                <span>Process Time (ticks)</span>
-                                <span id="process-val" class="font-mono text-emerald-400">10</span>
-                                <span id="process-hrs" class="font-mono text-slate-500 text-[10px]">0.5h</span>
+                                <span>Load Time (ticks)</span>
+                                <span id="load-time-val" class="font-mono text-emerald-400">10</span>
+                                <span id="load-time-hrs" class="font-mono text-slate-500 text-[10px]">0.5h</span>
                             </div>
-                            <input type="range" id="process" min="5" max="40" value="10" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <input type="range" id="load-time" min="5" max="40" value="10" class="w-full accent-emerald-500" oninput="updateConfig()">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span>Offload Time (ticks)</span>
+                                <span id="offload-time-val" class="font-mono text-emerald-400">10</span>
+                                <span id="offload-time-hrs" class="font-mono text-slate-500 text-[10px]">0.5h</span>
+                            </div>
+                            <input type="range" id="offload-time" min="5" max="80" value="10" class="w-full accent-amber-500" oninput="updateConfig()" disabled>
+                        </div>
+                        <div class="flex flex-col justify-end gap-2">
+                            <label class="flex items-center gap-2 text-xs cursor-pointer">
+                                <input type="checkbox" id="high-data-mode" class="accent-amber-500" onchange="updateConfig()">
+                                <span>High data volume <span class="text-slate-500">(offload ≈ mission)</span></span>
+                            </label>
+                            <div id="offload-factor-wrap" class="hidden">
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span>Offload factor</span>
+                                    <span id="offload-factor-val" class="font-mono text-amber-400">0.9</span>
+                                </div>
+                                <input type="range" id="offload-factor" min="0.5" max="1.2" step="0.05" value="0.9" class="w-full accent-amber-500" oninput="updateConfig()">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -183,6 +212,25 @@
                 <h3 class="font-semibold mb-3 text-sm">DEVICE STATE SUMMARY</h3>
                 <div id="states" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-11 gap-2 text-xs"></div>
             </div>
+
+            <!-- Offload sensitivity panel -->
+            <div class="xl:col-span-12 bg-slate-900 border border-slate-700 rounded-3xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                    <h3 class="font-semibold text-sm flex items-center gap-x-2">
+                        <i class="fa-solid fa-table-cells"></i> OFFLOAD SENSITIVITY
+                        <span class="text-slate-500 font-normal text-xs">stations × offload % of mission</span>
+                    </h3>
+                    <div class="text-[10px] text-slate-400">
+                        Fixed: current vehicles, missions/day, load time · ρ_offload shown
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs border-collapse" id="sensitivity-table">
+                        <thead id="sensitivity-head"></thead>
+                        <tbody id="sensitivity-body"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -200,7 +248,8 @@
             simDefaults: {
                 numVehicles: 8, totalDevices: 20, numLoadingStations: 2,
                 numOffloadStations: 3, missionsPerVehiclePerDay: 3,
-                missionDuration: 40, processTime: 10
+                missionDuration: 40, loadTime: 10, offloadTime: 10,
+                highDataVolumeMode: false, offloadFactor: 0.9
             }
         };
 
@@ -256,19 +305,33 @@
                 ['offload-stations', config.numOffloadStations],
                 ['missions-per-day', config.missionsPerVehiclePerDay],
                 ['mission', config.missionDuration],
-                ['process', config.processTime],
+                ['load-time', config.loadTime],
+                ['offload-time', config.offloadTime],
+                ['offload-factor', config.offloadFactor],
             ];
             map.forEach(([id, val]) => {
                 const el = document.getElementById(id);
                 if (el) el.value = val;
             });
+            const hd = document.getElementById('high-data-mode');
+            if (hd) hd.checked = !!config.highDataVolumeMode;
+        }
+
+        function effectiveOffloadTicks() {
+            if (window.MsdCapacityModel) {
+                return MsdCapacityModel.effectiveOffloadTicks(config);
+            }
+            if (config.highDataVolumeMode) {
+                return Math.max(1, Math.round(config.missionDuration * (config.offloadFactor || 0.9)));
+            }
+            return config.offloadTime;
         }
 
         // ------------------ INITIALIZATION ------------------
         function init() {
             resetSimulationState();
             updateUI();
-            addLog("v2.0 initialized. All state changes are timer-driven.", "system");
+            addLog("v2.1 initialized. Load/offload times split; sensitivity panel active.", "system");
         }
 
         function resetSimulationState() {
@@ -342,7 +405,7 @@
                     const device = devices.find(d => d.id === deviceId);
                     if (device) {
                         station.currentDeviceId = deviceId;
-                        station.busyUntil = simTick + config.processTime;
+                        station.busyUntil = simTick + config.loadTime;
                         device.state = STATES.LOADING;
                         device.timer = station.busyUntil;
                         addLog(`Device #${deviceId} → LOADING at Station ${station.id}`, "loading");
@@ -369,7 +432,7 @@
                     const device = devices.find(d => d.id === deviceId);
                     if (device) {
                         station.currentDeviceId = deviceId;
-                        station.busyUntil = simTick + config.processTime;
+                        station.busyUntil = simTick + effectiveOffloadTicks();
                         device.state = STATES.OFFLOADING;
                         addLog(`Device #${deviceId} → OFFLOADING at Station ${station.id}`, "offload");
                     }
@@ -499,6 +562,7 @@
 
             renderStateSummary();
             refreshAnalysisBanner();
+            refreshSensitivityTable();
         }
 
         function getLiveMetrics() {
@@ -534,8 +598,40 @@
 
             document.getElementById('bn-detail').textContent =
                 `ρ_load ${lastAnalysis.loadingUtilization} · ρ_offload ${lastAnalysis.offloadUtilization} · ` +
+                `offload ${lastAnalysis.effectiveOffloadHours}h · ` +
                 `devices ${lastAnalysis.devicesRecommended} recommended (pool ${config.totalDevices}) · ` +
                 `stations ≥ L${lastAnalysis.loadingStationsMin} O${lastAnalysis.offloadStationsMin}`;
+        }
+
+        function refreshSensitivityTable() {
+            if (!window.MsdCapacityModel) return;
+            const params = MsdCapacityModel.paramsFromSim(config, shared);
+            const pctValues = [0.5, 0.7, 0.9, 1.0, 1.2];
+            const stationsRange = [1, 2, 3, 4, 5, 6];
+            const rows = MsdCapacityModel.iterOffloadSensitivity(params, { offloadPctValues: pctValues, offloadStationsRange: stationsRange });
+
+            const head = document.getElementById('sensitivity-head');
+            const body = document.getElementById('sensitivity-body');
+            head.innerHTML = '<tr><th class="sens-cell text-left text-slate-400 border-b border-slate-700">Stations</th>' +
+                pctValues.map(p => `<th class="sens-cell text-slate-400 border-b border-slate-700">${Math.round(p * 100)}%</th>`).join('') +
+                '</tr>';
+
+            const byStation = {};
+            rows.forEach(r => {
+                if (!byStation[r.offloadStations]) byStation[r.offloadStations] = {};
+                byStation[r.offloadStations][r.offloadPct] = r;
+            });
+
+            body.innerHTML = stationsRange.map(st => {
+                const cells = pctValues.map(pct => {
+                    const r = byStation[st]?.[pct];
+                    if (!r) return '<td class="sens-cell border-b border-slate-800">—</td>';
+                    const cls = 'sens-bn-' + r.bottleneck;
+                    const title = `ρ_off=${r.rhoOffload} · min stations ${r.offloadStationsMin} · devices ${r.devicesRecommended}`;
+                    return `<td class="sens-cell border-b border-slate-800 ${cls}" title="${title}">ρ ${r.rhoOffload}<br><span class="opacity-70">${r.bottleneck}</span></td>`;
+                }).join('');
+                return `<tr><td class="sens-cell text-left font-mono text-slate-300 border-b border-slate-800">${st}</td>${cells}</tr>`;
+            }).join('');
         }
 
         function applyAnalysisRecommendation() {
@@ -628,7 +724,15 @@
             config.numOffloadStations = parseInt(document.getElementById('offload-stations').value);
             config.missionsPerVehiclePerDay = parseFloat(document.getElementById('missions-per-day').value);
             config.missionDuration = parseInt(document.getElementById('mission').value);
-            config.processTime = parseInt(document.getElementById('process').value);
+            config.loadTime = parseInt(document.getElementById('load-time').value);
+            config.offloadTime = parseInt(document.getElementById('offload-time').value);
+            config.highDataVolumeMode = document.getElementById('high-data-mode').checked;
+            config.offloadFactor = parseFloat(document.getElementById('offload-factor').value);
+
+            const offloadSlider = document.getElementById('offload-time');
+            const factorWrap = document.getElementById('offload-factor-wrap');
+            offloadSlider.disabled = config.highDataVolumeMode;
+            factorWrap.classList.toggle('hidden', !config.highDataVolumeMode);
 
             document.getElementById('v-val').textContent = config.numVehicles;
             document.getElementById('pool-val').textContent = config.totalDevices;
@@ -636,13 +740,17 @@
             document.getElementById('offload-val').textContent = config.numOffloadStations;
             document.getElementById('mpd-val').textContent = config.missionsPerVehiclePerDay;
             document.getElementById('mission-val').textContent = config.missionDuration;
-            document.getElementById('process-val').textContent = config.processTime;
+            document.getElementById('load-time-val').textContent = config.loadTime;
+            document.getElementById('offload-time-val').textContent = effectiveOffloadTicks();
+            document.getElementById('offload-factor-val').textContent = config.offloadFactor;
             document.getElementById('mission-hrs').textContent = ticksToHours(config.missionDuration) + 'h';
-            document.getElementById('process-hrs').textContent = ticksToHours(config.processTime) + 'h';
+            document.getElementById('load-time-hrs').textContent = ticksToHours(config.loadTime) + 'h';
+            document.getElementById('offload-time-hrs').textContent = ticksToHours(effectiveOffloadTicks()) + 'h';
             document.getElementById('tick-hint').textContent =
                 `${shared.ticksPerHour || 20} ticks = 1 hour`;
 
             refreshAnalysisBanner();
+            refreshSensitivityTable();
         }
 
         function updateSpeed() {

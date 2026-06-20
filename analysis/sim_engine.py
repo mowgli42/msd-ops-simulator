@@ -52,12 +52,24 @@ class SimConfig:
     num_loading_stations: int = 2
     num_offload_stations: int = 3
     mission_duration: int = 40
-    process_time: int = 10
+    load_time: int = 10
+    offload_time: int = 10
+    high_data_volume_mode: bool = False
+    offload_factor: float = 0.9
     ports_per_vehicle: int = 2
     seed_loaded_devices: int = 5
     missions_per_vehicle_per_day: float | None = None
     ticks_per_hour: float = 20.0
     operating_hours_per_day: float = 24.0
+
+    @property
+    def process_time(self) -> int:
+        return self.load_time
+
+    def effective_offload_ticks(self) -> int:
+        if self.high_data_volume_mode:
+            return max(1, round(self.mission_duration * self.offload_factor))
+        return self.offload_time
 
 
 @dataclass
@@ -230,7 +242,7 @@ class SimEngine:
                 device = self._device(device_id)
                 if device:
                     station.current_device_id = device_id
-                    station.busy_until = self.sim_tick + self.config.process_time
+                    station.busy_until = self.sim_tick + self.config.load_time
                     device.state = State.LOADING
                     device.timer = station.busy_until
 
@@ -248,7 +260,7 @@ class SimEngine:
                 device = self._device(device_id)
                 if device:
                     station.current_device_id = device_id
-                    station.busy_until = self.sim_tick + self.config.process_time
+                    station.busy_until = self.sim_tick + self.config.effective_offload_ticks()
                     device.state = State.OFFLOADING
 
             if station.current_device_id is not None and self.sim_tick >= station.busy_until:

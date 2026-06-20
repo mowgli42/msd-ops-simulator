@@ -17,7 +17,12 @@ operations:
 
 durations_hours:
   mission: 2.0
-  process: 0.5
+  load: 0.5
+  offload: 0.5
+
+modes:
+  high_data_volume: false
+  offload_factor: 0.9
 
 analysis:
   utilization_target: 0.85

@@ -16,7 +16,8 @@ Given:
 - `V` — number of vehicles  
 - `M` — missions per vehicle per day  
 - `T_m` — mission duration (hours)  
-- `T_p` — load/offload process time each (hours)  
+- `T_L` — load time (maps/threats, hours)  
+- `T_O` — offload + sanitize time (hours)  
 - `P` — ports per vehicle (default 2)  
 - `S_L`, `S_O` — loading and offload station counts  
 - `D` — MSD pool size  
@@ -41,22 +42,36 @@ For steady-state sizing, treat both queues as Poisson with rate:
 λ = λ_mission_per_hour   (devices/hour through load and offload)
 ```
 
-## Service rates (M/M/c)
+## Service rates (split M/M/c queues)
 
-Each station serves one device at a time with mean service time `T_p`:
+Loading and offload are **separate queues** with different service rates:
 
 ```text
-μ = 1 / T_p   (devices/hour per station)
-c = S_L or S_O
+μ_L = 1 / T_L   (devices/hour per loading station)
+μ_O = 1 / T_O   (devices/hour per offload station)
+c_L = S_L,  c_O = S_O
 ```
 
 Offered load (traffic intensity):
 
 ```text
-ρ = λ / (c × μ)   must be < 1 for stability
+ρ_L = λ / (S_L × μ_L)   must be < 1 for stability
+ρ_O = λ / (S_O × μ_O)   must be < 1 for stability
 ```
 
-If `ρ ≥ 1`, that side is **saturated** — the bottleneck.
+If `ρ ≥ 1` on either side, that queue is **saturated** — the bottleneck.
+
+### High data volume mode
+
+Continuous video recording can make offload ≈ mission duration. Enable in `fixtures/baseline.yaml`:
+
+```yaml
+modes:
+  high_data_volume: true
+  offload_factor: 0.9   # T_O = T_m × 0.9
+```
+
+When enabled, analysis and the sim use `T_O = T_m × offload_factor` instead of the fixed offload slider.
 
 ## Erlang C (wait probability)
 
@@ -75,7 +90,8 @@ W_q = P(wait) / (c × μ - λ)
 Mean time in system for load or offload:
 
 ```text
-W = W_q + T_p
+W_load = W_q,L + T_L
+W_offload = W_q,O + T_O
 ```
 
 ## Device pool — Little's Law
@@ -107,8 +123,8 @@ Compute utilization for each resource:
 
 | Resource | Utilization |
 |----------|-------------|
-| Loading | `ρ_L = λ / (S_L × μ)` |
-| Offload | `ρ_O = λ / (S_O × μ)` |
+| Loading | `ρ_L = λ / (S_L × μ_L)` |
+| Offload | `ρ_O = λ / (S_O × μ_O)` |
 | Devices | `D / D_required` (inverted: shortage if `D < D_required`) |
 | Vehicles | Missions limited if insufficient loaded devices → sim shows "waiting" |
 

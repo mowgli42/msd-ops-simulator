@@ -39,15 +39,24 @@ class RegressionOutcome:
 
 def shared_to_sim_config(cfg: SharedConfig, overrides: dict | None = None) -> SimConfig:
     overrides = overrides or {}
+    high_data = bool(overrides.get("high_data_volume", cfg.high_data_volume_mode))
+    offload_factor = float(overrides.get("offload_factor", cfg.offload_factor))
+    mission_ticks = int(overrides.get("mission_duration_ticks", cfg.mission_duration_ticks))
+    load_ticks = int(overrides.get("load_time_ticks", cfg.load_time_ticks))
+    offload_ticks = int(overrides.get("offload_time_ticks", cfg.offload_time_ticks))
+    if high_data:
+        offload_ticks = max(1, round(mission_ticks * offload_factor))
+
     return SimConfig(
         num_vehicles=int(overrides.get("vehicles", cfg.vehicles)),
         total_devices=int(overrides.get("device_pool", cfg.device_pool)),
         num_loading_stations=int(overrides.get("loading_stations", cfg.loading_stations)),
         num_offload_stations=int(overrides.get("offload_stations", cfg.offload_stations)),
-        mission_duration=int(
-            overrides.get("mission_duration_ticks", cfg.mission_duration_ticks)
-        ),
-        process_time=int(overrides.get("process_time_ticks", cfg.process_time_ticks)),
+        mission_duration=mission_ticks,
+        load_time=load_ticks,
+        offload_time=offload_ticks,
+        high_data_volume_mode=high_data,
+        offload_factor=offload_factor,
         ports_per_vehicle=int(overrides.get("ports_per_vehicle", cfg.ports_per_vehicle)),
         seed_loaded_devices=int(overrides.get("seed_loaded_devices", 5)),
         missions_per_vehicle_per_day=float(
@@ -82,6 +91,37 @@ def run_case(case: RegressionCase) -> RegressionOutcome:
     )
 
 
+def _merge_params(base_cfg: SharedConfig, ops_overrides: dict, modes_overrides: dict) -> OpsParameters:
+    high_data = bool(modes_overrides.get("high_data_volume", base_cfg.high_data_volume_mode))
+    offload_factor = float(modes_overrides.get("offload_factor", base_cfg.offload_factor))
+    durations = ops_overrides.get("durations_hours") or {}
+    load_h = float(durations.get("load", ops_overrides.get("load", base_cfg.load_time_hours)))
+    offload_h = float(durations.get("offload", ops_overrides.get("offload", base_cfg.offload_time_hours)))
+    mission_h = float(durations.get("mission", base_cfg.mission_duration_hours))
+
+    if high_data:
+        offload_h = mission_h * offload_factor
+
+    return OpsParameters(
+        vehicles=int(ops_overrides.get("vehicles", base_cfg.vehicles)),
+        missions_per_vehicle_per_day=float(
+            ops_overrides.get("missions_per_vehicle_per_day", base_cfg.missions_per_vehicle_per_day)
+        ),
+        mission_duration_hours=mission_h,
+        load_time_hours=load_h,
+        offload_time_hours=offload_h,
+        ports_per_vehicle=int(ops_overrides.get("ports_per_vehicle", base_cfg.ports_per_vehicle)),
+        loading_stations=int(ops_overrides.get("loading_stations", base_cfg.loading_stations)),
+        offload_stations=int(ops_overrides.get("offload_stations", base_cfg.offload_stations)),
+        device_pool=int(ops_overrides.get("device_pool", base_cfg.device_pool)),
+        operating_hours_per_day=base_cfg.operating_hours_per_day,
+        utilization_target=base_cfg.utilization_target,
+        device_buffer_fraction=base_cfg.device_buffer_fraction,
+        high_data_volume_mode=high_data,
+        offload_factor=offload_factor,
+    )
+
+
 def load_regression_cases(path: str | Path) -> list[RegressionCase]:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     base_cfg = load_shared_config(data.get("base_config", "fixtures/baseline.yaml"))
@@ -90,35 +130,22 @@ def load_regression_cases(path: str | Path) -> list[RegressionCase]:
     for entry in data.get("cases", []):
         name = entry["name"]
         ops_overrides = entry.get("operations", {})
+        modes_overrides = entry.get("modes", {})
         sim_overrides = entry.get("sim", {})
         timing = entry.get("timing", {})
 
-        merged_ops = {
-            "vehicles": ops_overrides.get("vehicles", base_cfg.vehicles),
-            "missions_per_vehicle_per_day": ops_overrides.get(
-                "missions_per_vehicle_per_day", base_cfg.missions_per_vehicle_per_day
-            ),
-            "device_pool": ops_overrides.get("device_pool", base_cfg.device_pool),
-            "loading_stations": ops_overrides.get("loading_stations", base_cfg.loading_stations),
-            "offload_stations": ops_overrides.get("offload_stations", base_cfg.offload_stations),
-            "ports_per_vehicle": ops_overrides.get("ports_per_vehicle", base_cfg.ports_per_vehicle),
-        }
-
-        params = OpsParameters(
-            vehicles=int(merged_ops["vehicles"]),
-            missions_per_vehicle_per_day=float(merged_ops["missions_per_vehicle_per_day"]),
-            mission_duration_hours=base_cfg.mission_duration_hours,
-            process_time_hours=base_cfg.process_time_hours,
-            ports_per_vehicle=int(merged_ops["ports_per_vehicle"]),
-            loading_stations=int(merged_ops["loading_stations"]),
-            offload_stations=int(merged_ops["offload_stations"]),
-            device_pool=int(merged_ops["device_pool"]),
-            operating_hours_per_day=base_cfg.operating_hours_per_day,
-            utilization_target=base_cfg.utilization_target,
-            device_buffer_fraction=base_cfg.device_buffer_fraction,
+        params = _merge_params(base_cfg, ops_overrides, modes_overrides)
+        sim_cfg = shared_to_sim_config(
+            base_cfg,
+            {
+                **ops_overrides,
+                **modes_overrides,
+                **sim_overrides,
+                "high_data_volume": modes_overrides.get(
+                    "high_data_volume", base_cfg.high_data_volume_mode
+                ),
+            },
         )
-
-        sim_cfg = shared_to_sim_config(base_cfg, {**merged_ops, **sim_overrides})
         tph = float(timing.get("ticks_per_hour", base_cfg.ticks_per_hour))
 
         cases.append(

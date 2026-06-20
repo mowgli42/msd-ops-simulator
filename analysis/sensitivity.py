@@ -16,7 +16,10 @@ CSV_COLUMNS = [
     "vehicles",
     "missions_per_vehicle_per_day",
     "mission_duration_hours",
-    "process_time_hours",
+    "load_time_hours",
+    "offload_time_hours",
+    "high_data_volume_mode",
+    "offload_factor",
     "loading_stations",
     "offload_stations",
     "device_pool",
@@ -54,7 +57,8 @@ def iter_sensitivity_rows(
                         vehicles=base.vehicles,
                         missions_per_vehicle_per_day=missions,
                         mission_duration_hours=base.mission_duration_hours,
-                        process_time_hours=base.process_time_hours,
+                        load_time_hours=base.load_time_hours,
+                        offload_time_hours=base.offload_time_hours,
                         ports_per_vehicle=base.ports_per_vehicle,
                         loading_stations=loading,
                         offload_stations=offload,
@@ -62,6 +66,8 @@ def iter_sensitivity_rows(
                         operating_hours_per_day=base.operating_hours_per_day,
                         utilization_target=base.utilization_target,
                         device_buffer_fraction=base.device_buffer_fraction,
+                        high_data_volume_mode=base.high_data_volume_mode,
+                        offload_factor=base.offload_factor,
                     )
                     result = analyze(params)
                     rows.append(
@@ -69,7 +75,10 @@ def iter_sensitivity_rows(
                             "vehicles": params.vehicles,
                             "missions_per_vehicle_per_day": params.missions_per_vehicle_per_day,
                             "mission_duration_hours": params.mission_duration_hours,
-                            "process_time_hours": params.process_time_hours,
+                            "load_time_hours": params.load_time_hours,
+                            "offload_time_hours": params.effective_offload_hours(),
+                            "high_data_volume_mode": params.high_data_volume_mode,
+                            "offload_factor": params.offload_factor,
                             "loading_stations": params.loading_stations,
                             "offload_stations": params.offload_stations,
                             "device_pool": params.device_pool,
@@ -87,8 +96,53 @@ def iter_sensitivity_rows(
     return rows
 
 
+def iter_offload_time_sensitivity(
+    base: OpsParameters,
+    *,
+    offload_station_range: range | None = None,
+    offload_pct_values: list[float] | None = None,
+) -> list[dict]:
+    """Sweep offload stations × offload time as % of mission duration."""
+    offload_station_range = offload_station_range or range(1, 7)
+    offload_pct_values = offload_pct_values or [0.5, 0.7, 0.9, 1.0, 1.2]
+
+    rows: list[dict] = []
+    for stations in offload_station_range:
+        for pct in offload_pct_values:
+            params = OpsParameters(
+                vehicles=base.vehicles,
+                missions_per_vehicle_per_day=base.missions_per_vehicle_per_day,
+                mission_duration_hours=base.mission_duration_hours,
+                load_time_hours=base.load_time_hours,
+                offload_time_hours=base.mission_duration_hours * pct,
+                ports_per_vehicle=base.ports_per_vehicle,
+                loading_stations=base.loading_stations,
+                offload_stations=stations,
+                device_pool=base.device_pool,
+                operating_hours_per_day=base.operating_hours_per_day,
+                utilization_target=base.utilization_target,
+                device_buffer_fraction=base.device_buffer_fraction,
+            )
+            result = analyze(params)
+            rows.append(
+                {
+                    "offload_stations": stations,
+                    "offload_pct_of_mission": pct,
+                    "offload_time_hours": params.offload_time_hours,
+                    "loading_utilization": result.loading_utilization,
+                    "offload_utilization": result.offload_utilization,
+                    "bottleneck": result.bottleneck,
+                    "devices_recommended": result.devices_recommended,
+                    "offload_stations_min": result.offload_stations_min,
+                }
+            )
+    return rows
+
+
 def write_csv(rows: list[dict], out: io.TextIO) -> None:
-    writer = csv.DictWriter(out, fieldnames=CSV_COLUMNS)
+    if not rows:
+        return
+    writer = csv.DictWriter(out, fieldnames=list(rows[0].keys()))
     writer.writeheader()
     writer.writerows(rows)
 
@@ -101,9 +155,9 @@ def main() -> int:
     parser.add_argument("-o", "--output", type=Path, default=None, help="Write CSV file (default stdout)")
     parser.add_argument(
         "--mode",
-        choices=("full", "stations", "missions"),
+        choices=("full", "stations", "missions", "offload_time"),
         default="stations",
-        help="full=all combos; stations=offload×loading; missions=missions/day sweep",
+        help="full=all combos; stations=offload×loading; missions=missions/day; offload_time=stations×offload%",
     )
     args = parser.parse_args()
 
@@ -123,6 +177,8 @@ def main() -> int:
             pool_range=range(base.device_pool, base.device_pool + 1),
             missions_values=[1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0],
         )
+    elif args.mode == "offload_time":
+        rows = iter_offload_time_sensitivity(base)
     else:
         rows = iter_sensitivity_rows(base)
 

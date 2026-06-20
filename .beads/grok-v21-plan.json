@@ -1,0 +1,65 @@
+{
+  "nodes": [
+    {
+      "key": "epic",
+      "title": "v2.1 Grok feedback: offload separation + sensitivity UI",
+      "type": "epic",
+      "priority": 1,
+      "description": "Separate load/offload times, high-data video mode, sensitivity heatmap panel. See docs/SPEC-V21-OFFLOAD-SENSITIVITY.md.",
+      "labels": ["grok-v21"]
+    },
+    {
+      "key": "offload-model",
+      "title": "Split load_time and offload_time in analysis + YAML",
+      "type": "task",
+      "priority": 1,
+      "parent": "epic",
+      "acceptance": "capacity_model uses mu_load and mu_offload; tests pass"
+    },
+    {
+      "key": "offload-sim",
+      "title": "Sim engine + index.html separate offload timer",
+      "type": "task",
+      "priority": 1,
+      "parent": "epic",
+      "depends_on": ["offload-model"],
+      "acceptance": "Offload stations use offloadTime; load uses loadTime"
+    },
+    {
+      "key": "high-data",
+      "title": "High data volume mode (offload = mission × factor)",
+      "type": "task",
+      "priority": 1,
+      "parent": "epic",
+      "depends_on": ["offload-sim"],
+      "acceptance": "Toggle + factor slider; effective offload in sim and analysis"
+    },
+    {
+      "key": "sens-ui",
+      "title": "Sensitivity table panel in simulator UI",
+      "type": "task",
+      "priority": 1,
+      "parent": "epic",
+      "depends_on": ["offload-model"],
+      "acceptance": "Grid: offload % × stations with rho and bottleneck"
+    },
+    {
+      "key": "regress-video",
+      "title": "Regression scenario: video offload = mission time",
+      "type": "task",
+      "priority": 2,
+      "parent": "epic",
+      "depends_on": ["high-data"],
+      "acceptance": "fixtures/regression_scenarios.yaml high_video case passes"
+    },
+    {
+      "key": "docs-v21",
+      "title": "Update CAPACITY_ANALYSIS + WORKFLOW for split times",
+      "type": "task",
+      "priority": 2,
+      "parent": "epic",
+      "depends_on": ["offload-model"],
+      "acceptance": "Docs describe M/M/c_load and M/M/c_offload"
+    }
+  ]
+}

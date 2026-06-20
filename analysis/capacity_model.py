@@ -16,7 +16,8 @@ class OpsParameters:
     vehicles: int = 8
     missions_per_vehicle_per_day: float = 3.0
     mission_duration_hours: float = 2.0
-    process_time_hours: float = 0.5
+    load_time_hours: float = 0.5
+    offload_time_hours: float = 0.5
     ports_per_vehicle: int = 2
     loading_stations: int = 2
     offload_stations: int = 3
@@ -24,6 +25,18 @@ class OpsParameters:
     operating_hours_per_day: float = 24.0
     utilization_target: float = 0.85
     device_buffer_fraction: float = 0.10
+    high_data_volume_mode: bool = False
+    offload_factor: float = 0.9
+
+    @property
+    def process_time_hours(self) -> float:
+        """Alias for load time (backward compatibility)."""
+        return self.load_time_hours
+
+    def effective_offload_hours(self) -> float:
+        if self.high_data_volume_mode:
+            return self.mission_duration_hours * self.offload_factor
+        return self.offload_time_hours
 
 
 @dataclass(frozen=True)
@@ -93,19 +106,21 @@ def analyze(params: OpsParameters) -> CapacityResult:
     lambda_rate = (
         params.vehicles * params.missions_per_vehicle_per_day / params.operating_hours_per_day
     )
-    mu = 1.0 / params.process_time_hours if params.process_time_hours > 0 else math.inf
+    mu_load = 1.0 / params.load_time_hours if params.load_time_hours > 0 else math.inf
+    offload_h = params.effective_offload_hours()
+    mu_offload = 1.0 / offload_h if offload_h > 0 else math.inf
 
-    rho_l = lambda_rate / (params.loading_stations * mu) if params.loading_stations > 0 else math.inf
-    rho_o = lambda_rate / (params.offload_stations * mu) if params.offload_stations > 0 else math.inf
+    rho_l = lambda_rate / (params.loading_stations * mu_load) if params.loading_stations > 0 else math.inf
+    rho_o = lambda_rate / (params.offload_stations * mu_offload) if params.offload_stations > 0 else math.inf
 
-    pw_l = erlang_c(lambda_rate, mu, params.loading_stations)
-    pw_o = erlang_c(lambda_rate, mu, params.offload_stations)
+    pw_l = erlang_c(lambda_rate, mu_load, params.loading_stations)
+    pw_o = erlang_c(lambda_rate, mu_offload, params.offload_stations)
 
-    wq_l = mean_wait_hours(lambda_rate, mu, params.loading_stations)
-    wq_o = mean_wait_hours(lambda_rate, mu, params.offload_stations)
+    wq_l = mean_wait_hours(lambda_rate, mu_load, params.loading_stations)
+    wq_o = mean_wait_hours(lambda_rate, mu_offload, params.offload_stations)
 
-    w_load = (wq_l if math.isfinite(wq_l) else math.inf) + params.process_time_hours
-    w_offload = (wq_o if math.isfinite(wq_o) else math.inf) + params.process_time_hours
+    w_load = (wq_l if math.isfinite(wq_l) else math.inf) + params.load_time_hours
+    w_offload = (wq_o if math.isfinite(wq_o) else math.inf) + offload_h
     cycle = w_load + params.mission_duration_hours + w_offload
 
     devices_required = lambda_rate * cycle if math.isfinite(cycle) else math.inf
@@ -117,8 +132,8 @@ def analyze(params: OpsParameters) -> CapacityResult:
         else device_floor,
     )
 
-    s_l_min = stations_required(lambda_rate, mu, params.utilization_target)
-    s_o_min = stations_required(lambda_rate, mu, params.utilization_target)
+    s_l_min = stations_required(lambda_rate, mu_load, params.utilization_target)
+    s_o_min = stations_required(lambda_rate, mu_offload, params.utilization_target)
 
     loading_stable = rho_l < 1.0
     offload_stable = rho_o < 1.0
@@ -144,7 +159,7 @@ def analyze(params: OpsParameters) -> CapacityResult:
 
     return CapacityResult(
         arrival_rate_per_hour=round(lambda_rate, 4),
-        service_rate_per_station=round(mu, 4),
+        service_rate_per_station=round(mu_offload, 4),
         loading_utilization=round(rho_l, 4),
         offload_utilization=round(rho_o, 4),
         loading_wait_prob=round(pw_l, 4),
@@ -198,7 +213,11 @@ def main() -> int:
     parser.add_argument("--vehicles", type=int, default=None)
     parser.add_argument("--missions-per-day", type=float, default=None)
     parser.add_argument("--mission-hours", type=float, default=None)
-    parser.add_argument("--process-hours", type=float, default=None)
+    parser.add_argument("--load-hours", type=float, default=None, help="Load time (maps/threats)")
+    parser.add_argument("--offload-hours", type=float, default=None, help="Offload + sanitize time")
+    parser.add_argument("--process-hours", type=float, default=None, help="Alias for --load-hours")
+    parser.add_argument("--high-data-volume", action="store_true", help="Offload = mission × factor")
+    parser.add_argument("--offload-factor", type=float, default=None)
     parser.add_argument("--loading-stations", type=int, default=None)
     parser.add_argument("--offload-stations", type=int, default=None)
     parser.add_argument("--device-pool", type=int, default=None)
@@ -213,10 +232,13 @@ def main() -> int:
             "vehicles": args.vehicles,
             "missions_per_vehicle_per_day": args.missions_per_day,
             "mission_duration_hours": args.mission_hours,
-            "process_time_hours": args.process_hours,
+            "load_time_hours": args.load_hours if args.load_hours is not None else args.process_hours,
+            "offload_time_hours": args.offload_hours,
             "loading_stations": args.loading_stations,
             "offload_stations": args.offload_stations,
             "device_pool": args.device_pool,
+            "high_data_volume_mode": True if args.high_data_volume else None,
+            "offload_factor": args.offload_factor,
         }
         params = OpsParameters(
             **{k: v for k, v in {**asdict(params), **{k: o for k, o in overrides.items() if o is not None}}.items()}
@@ -226,10 +248,17 @@ def main() -> int:
             vehicles=args.vehicles if args.vehicles is not None else 8,
             missions_per_vehicle_per_day=args.missions_per_day if args.missions_per_day is not None else 3.0,
             mission_duration_hours=args.mission_hours if args.mission_hours is not None else 2.0,
-            process_time_hours=args.process_hours if args.process_hours is not None else 0.5,
+            load_time_hours=(
+                args.load_hours
+                if args.load_hours is not None
+                else (args.process_hours if args.process_hours is not None else 0.5)
+            ),
+            offload_time_hours=args.offload_hours if args.offload_hours is not None else 0.5,
             loading_stations=args.loading_stations if args.loading_stations is not None else 2,
             offload_stations=args.offload_stations if args.offload_stations is not None else 3,
             device_pool=args.device_pool if args.device_pool is not None else 20,
+            high_data_volume_mode=args.high_data_volume,
+            offload_factor=args.offload_factor if args.offload_factor is not None else 0.9,
         )
     result = analyze(params)
 
