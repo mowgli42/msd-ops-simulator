@@ -1,0 +1,37 @@
+# Regression scenarios: analysis prediction vs discrete sim steady-state
+base_config: fixtures/baseline.yaml
+
+cases:
+  - name: baseline_balanced
+    operations: {}
+
+  - name: offload_saturated
+    operations:
+      vehicles: 10
+      missions_per_vehicle_per_day: 8
+      offload_stations: 1
+      device_pool: 40
+
+  - name: loading_saturated
+    operations:
+      vehicles: 10
+      missions_per_vehicle_per_day: 10
+      loading_stations: 1
+      offload_stations: 5
+      device_pool: 50
+
+  - name: device_starved
+    operations:
+      vehicles: 12
+      missions_per_vehicle_per_day: 4
+      device_pool: 10
+      loading_stations: 3
+      offload_stations: 3
+
+  - name: apply_recommendation_shape
+    operations:
+      vehicles: 12
+      missions_per_vehicle_per_day: 6
+      offload_stations: 1
+      loading_stations: 3
+      device_pool: 50

@@ -105,11 +105,12 @@ Just open `index.html` in any browser. No build step required.
 ```bash
 python -m analysis.capacity_model --config fixtures/baseline.yaml
 python scripts/sync-config.py    # after editing baseline.yaml
-./scripts/run-tests.sh
-python scripts/capture-screenshots.py   # refresh walkthrough images
+./scripts/run-tests.sh           # includes regression scenarios
+python -m analysis.regression    # analysis vs sim alignment
+./scripts/export-sensitivity.sh  # CSV sweep for Excel
 ```
 
-The simulator (v2.1) shows a **capacity analysis banner**, **Apply recommendation**, and **Export metrics** — linked to the same formulas as the Python CLI via `js/capacity-model.js`.
+Simulator v2.1 links analysis banner + Apply recommendation to the same formulas as the CLI.
 
 ## Issue tracking (beads)
 

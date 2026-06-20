@@ -36,8 +36,15 @@ python scripts/sync-config.py
 python -m analysis.capacity_model --config fixtures/baseline.yaml
 python -m analysis.capacity_model --vehicles 8 --missions-per-day 3
 
-# Tests (syncs config + pytest)
+# Tests (syncs config + pytest + regression)
 ./scripts/run-tests.sh
+
+# Regression: analysis vs sim
+python -m analysis.regression
+
+# Sensitivity CSV
+./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
+python -m analysis.sensitivity --mode missions -o output/sensitivity-missions.csv
 ```
 
 ## Extending the simulator (`index.html`)

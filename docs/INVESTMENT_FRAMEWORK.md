@@ -53,7 +53,8 @@ When presenting to leadership, include:
 `MSD_Investment_Analysis.xlsx` is referenced in README but not in repo. Until restored, use:
 
 ```bash
-python -m analysis.capacity_model --format csv > sizing.csv
+./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
+python -m analysis.sensitivity --mode missions -o output/sensitivity-missions.csv
 ```
 
 Phase 3 may add a checked-in CSV template or xlsx export.
