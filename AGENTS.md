@@ -10,7 +10,12 @@ This project uses **bd (beads)** for issue tracking. Run `bd prime` for full wor
 |-------|---------|
 | `index.html` | Timer-driven 11-state discrete simulator (main UI) |
 | `docs/WORKFLOW.md` | State machine reference — read before changing sim logic |
-| `analysis/capacity_model.py` | M/M/c queue sizing, Poisson arrivals, bottleneck detection |
+| `fixtures/baseline.yaml` | Shared scenario — hours + tick mapping (`ticks_per_hour: 20`) |
+| `scripts/sync-config.py` | Regenerates `js/shared-config.js` after YAML edits |
+| `js/capacity-model.js` | Browser port of `analysis/capacity_model.py` |
+| `js/shared-config.js` | Auto-generated sim defaults from YAML |
+| `analysis/capacity_model.py` | M/M/c queue sizing and bottleneck detection |
+| `analysis/config_loader.py` | YAML loader + tick ↔ hour conversion |
 | `docs/CAPACITY_ANALYSIS.md` | Formula reference for the analysis module |
 | `docs/INVESTMENT_FRAMEWORK.md` | Which lever to pull when a bottleneck appears |
 | `docs/WALKTHROUGH.md` | Operator walkthrough with screenshots |
@@ -21,19 +26,18 @@ This project uses **bd (beads)** for issue tracking. Run `bd prime` for full wor
 ## Local setup
 
 ```bash
-# Simulator — open in browser
+# Simulator — open in browser (loads js/shared-config.js from fixtures/baseline.yaml)
 xdg-open index.html
 
+# After editing fixtures/baseline.yaml:
+python scripts/sync-config.py
+
 # Analysis CLI
+python -m analysis.capacity_model --config fixtures/baseline.yaml
 python -m analysis.capacity_model --vehicles 8 --missions-per-day 3
 
-# Tests
+# Tests (syncs config + pytest)
 ./scripts/run-tests.sh
-
-# Screenshots for walkthrough
-pip install playwright pytest
-python -m playwright install chromium
-python scripts/capture-screenshots.py
 ```
 
 ## Extending the simulator (`index.html`)

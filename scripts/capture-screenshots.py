@@ -22,8 +22,9 @@ def capture_with_playwright() -> bool:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1440, "height": 900})
         page.goto(INDEX.as_uri(), wait_until="networkidle")
+        page.wait_for_timeout(500)
 
-        # Initial state
+        # Initial state (with analysis banner)
         page.screenshot(path=str(OUT / "01-initial-config.png"))
 
         # Start simulation

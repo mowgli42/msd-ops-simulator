@@ -1,0 +1,24 @@
+# Shared baseline scenario — drives Python analysis and browser simulator.
+# Regenerate js/shared-config.js after edits: python scripts/sync-config.py
+
+scenario_id: baseline
+
+timing:
+  ticks_per_hour: 20
+  operating_hours_per_day: 24
+
+operations:
+  vehicles: 8
+  missions_per_vehicle_per_day: 3.0
+  ports_per_vehicle: 2
+  device_pool: 20
+  loading_stations: 2
+  offload_stations: 3
+
+durations_hours:
+  mission: 2.0
+  process: 0.5
+
+analysis:
+  utilization_target: 0.85
+  device_buffer_fraction: 0.10

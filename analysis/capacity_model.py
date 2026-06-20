@@ -189,25 +189,48 @@ def format_summary(params: OpsParameters, result: CapacityResult) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="MSD ops capacity sizing")
-    parser.add_argument("--vehicles", type=int, default=8)
-    parser.add_argument("--missions-per-day", type=float, default=3.0)
-    parser.add_argument("--mission-hours", type=float, default=2.0)
-    parser.add_argument("--process-hours", type=float, default=0.5)
-    parser.add_argument("--loading-stations", type=int, default=2)
-    parser.add_argument("--offload-stations", type=int, default=3)
-    parser.add_argument("--device-pool", type=int, default=20)
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="",
+        help="YAML fixture (e.g. fixtures/baseline.yaml); CLI flags override loaded values",
+    )
+    parser.add_argument("--vehicles", type=int, default=None)
+    parser.add_argument("--missions-per-day", type=float, default=None)
+    parser.add_argument("--mission-hours", type=float, default=None)
+    parser.add_argument("--process-hours", type=float, default=None)
+    parser.add_argument("--loading-stations", type=int, default=None)
+    parser.add_argument("--offload-stations", type=int, default=None)
+    parser.add_argument("--device-pool", type=int, default=None)
     parser.add_argument("--format", choices=("text", "json", "csv"), default="text")
     args = parser.parse_args()
 
-    params = OpsParameters(
-        vehicles=args.vehicles,
-        missions_per_vehicle_per_day=args.missions_per_day,
-        mission_duration_hours=args.mission_hours,
-        process_time_hours=args.process_hours,
-        loading_stations=args.loading_stations,
-        offload_stations=args.offload_stations,
-        device_pool=args.device_pool,
-    )
+    if args.config:
+        from analysis.config_loader import load_shared_config, to_ops_parameters
+
+        params = to_ops_parameters(load_shared_config(args.config))
+        overrides = {
+            "vehicles": args.vehicles,
+            "missions_per_vehicle_per_day": args.missions_per_day,
+            "mission_duration_hours": args.mission_hours,
+            "process_time_hours": args.process_hours,
+            "loading_stations": args.loading_stations,
+            "offload_stations": args.offload_stations,
+            "device_pool": args.device_pool,
+        }
+        params = OpsParameters(
+            **{k: v for k, v in {**asdict(params), **{k: o for k, o in overrides.items() if o is not None}}.items()}
+        )
+    else:
+        params = OpsParameters(
+            vehicles=args.vehicles if args.vehicles is not None else 8,
+            missions_per_vehicle_per_day=args.missions_per_day if args.missions_per_day is not None else 3.0,
+            mission_duration_hours=args.mission_hours if args.mission_hours is not None else 2.0,
+            process_time_hours=args.process_hours if args.process_hours is not None else 0.5,
+            loading_stations=args.loading_stations if args.loading_stations is not None else 2,
+            offload_stations=args.offload_stations if args.offload_stations is not None else 3,
+            device_pool=args.device_pool if args.device_pool is not None else 20,
+        )
     result = analyze(params)
 
     if args.format == "json":

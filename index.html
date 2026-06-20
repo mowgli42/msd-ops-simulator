@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSD Ops Simulator v2.0 • Clean Workflow</title>
+    <title>MSD Ops Simulator v2.1 • Analysis Linked</title>
+    <script src="js/shared-config.js"></script>
+    <script src="js/capacity-model.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body { font-family: 'Inter', system_ui, sans-serif; }
         .state-pill { font-size: 10px; padding: 1px 7px; border-radius: 9999px; white-space: nowrap; }
         .log-entry { font-size: 11px; line-height: 1.3; }
+        .bn-balanced { border-color: #238636; background: #23863622; color: #3fb950; }
+        .bn-loading { border-color: #8957e5; background: #8957e522; color: #a371f7; }
+        .bn-offload { border-color: #d29922; background: #d2992222; color: #e3b341; }
+        .bn-devices { border-color: #f85149; background: #f8514922; color: #ff7b72; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
@@ -21,8 +27,8 @@
                     <i class="fa-solid fa-microchip text-white text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="font-semibold text-2xl tracking-tighter">MSD Ops Simulator <span class="text-emerald-400">v2.0</span></h1>
-                    <p class="text-xs text-slate-400 -mt-1">Timer-driven state machine • Cursor-friendly</p>
+                    <h1 class="font-semibold text-2xl tracking-tighter">MSD Ops Simulator <span class="text-emerald-400">v2.1</span></h1>
+                    <p class="text-xs text-slate-400 -mt-1">Sim + capacity analysis linked • 20 ticks/hour</p>
                 </div>
             </div>
 
@@ -74,6 +80,29 @@
             </div>
         </div>
 
+        </div>
+
+        <!-- Capacity analysis banner -->
+        <div id="analysis-banner" class="mb-6 rounded-3xl border px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bn-balanced">
+            <div>
+                <div class="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Capacity analysis</div>
+                <div class="font-semibold text-lg" id="bn-title">Bottleneck: balanced</div>
+                <div class="text-xs text-slate-400 mt-1" id="bn-detail">ρ_load — · ρ_offload — · devices —</div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="applyAnalysisRecommendation()" id="apply-btn"
+                        class="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 rounded-2xl flex items-center gap-x-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    Apply recommendation
+                </button>
+                <button onclick="exportRunMetrics()"
+                        class="px-4 py-2 text-sm font-medium hover:bg-slate-800 rounded-2xl border border-slate-700 flex items-center gap-x-2">
+                    <i class="fa-solid fa-download"></i>
+                    Export metrics
+                </button>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
             
             <!-- Configuration -->
@@ -94,6 +123,14 @@
                         </div>
                     </div>
 
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Missions / vehicle / day <span class="text-slate-500">(analysis λ)</span></span>
+                            <span id="mpd-val" class="font-mono text-emerald-400">3</span>
+                        </div>
+                        <input type="range" id="missions-per-day" min="1" max="12" step="0.5" value="3" class="w-full accent-emerald-500" oninput="updateConfig()">
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="flex justify-between text-xs mb-1"><span>Loading Stations</span><span id="load-val" class="font-mono text-emerald-400">2</span></div>
@@ -107,18 +144,26 @@
 
                     <div class="grid grid-cols-2 gap-4 pt-3 border-t border-slate-700">
                         <div>
-                            <div class="flex justify-between text-xs mb-1"><span>Mission Duration (ticks)</span><span id="mission-val" class="font-mono text-emerald-400">40</span></div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span>Mission Duration (ticks)</span>
+                                <span id="mission-val" class="font-mono text-emerald-400">40</span>
+                                <span id="mission-hrs" class="font-mono text-slate-500 text-[10px]">2.0h</span>
+                            </div>
                             <input type="range" id="mission" min="15" max="90" value="40" class="w-full accent-emerald-500" oninput="updateConfig()">
                         </div>
                         <div>
-                            <div class="flex justify-between text-xs mb-1"><span>Process Time (ticks)</span><span id="process-val" class="font-mono text-emerald-400">15</span></div>
-                            <input type="range" id="process" min="5" max="40" value="15" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span>Process Time (ticks)</span>
+                                <span id="process-val" class="font-mono text-emerald-400">10</span>
+                                <span id="process-hrs" class="font-mono text-slate-500 text-[10px]">0.5h</span>
+                            </div>
+                            <input type="range" id="process" min="5" max="40" value="10" class="w-full accent-emerald-500" oninput="updateConfig()">
                         </div>
                     </div>
                 </div>
                 
                 <div class="mt-4 pt-4 border-t border-slate-700 text-[10px] text-slate-400">
-                    All values are live. The simulation uses these directly from the <code class="text-emerald-400">config</code> object.
+                    <span id="tick-hint">20 ticks = 1 hour</span> · shared <code class="text-emerald-400">fixtures/baseline.yaml</code>
                 </div>
             </div>
 
@@ -143,9 +188,23 @@
 
     <script>
         // ============================================================
-        // MSD OPS SIMULATOR v2.0
-        // Timer-driven state machine. Explicit queues. Cursor-friendly.
+        // MSD OPS SIMULATOR v2.1 — linked to analysis/capacity_model.py via js/capacity-model.js
         // ============================================================
+
+        const shared = window.MSD_SHARED_CONFIG || {
+            ticksPerHour: 20,
+            operatingHoursPerDay: 24,
+            utilizationTarget: 0.85,
+            deviceBufferFraction: 0.1,
+            portsPerVehicle: 2,
+            simDefaults: {
+                numVehicles: 8, totalDevices: 20, numLoadingStations: 2,
+                numOffloadStations: 3, missionsPerVehiclePerDay: 3,
+                missionDuration: 40, processTime: 10
+            }
+        };
+
+        let lastAnalysis = null;
 
         // ------------------ STATE DEFINITIONS ------------------
         const STATES = {
@@ -176,14 +235,34 @@
         let missionsCompleted = 0;
         let totalMissionsStarted = 0;
 
-        let config = {
-            numVehicles: 8,
-            totalDevices: 20,
-            numLoadingStations: 2,
-            numOffloadStations: 3,
-            missionDuration: 40,
-            processTime: 15
-        };
+        let config = { ...shared.simDefaults };
+
+        function ticksToHours(ticks) {
+            return (ticks / (shared.ticksPerHour || 20)).toFixed(1);
+        }
+
+        function clampSlider(id, value, min, max) {
+            const el = document.getElementById(id);
+            const v = Math.max(min, Math.min(max, value));
+            el.value = v;
+            return v;
+        }
+
+        function setSliderValues() {
+            const map = [
+                ['vehicles', config.numVehicles],
+                ['pool', config.totalDevices],
+                ['loading-stations', config.numLoadingStations],
+                ['offload-stations', config.numOffloadStations],
+                ['missions-per-day', config.missionsPerVehiclePerDay],
+                ['mission', config.missionDuration],
+                ['process', config.processTime],
+            ];
+            map.forEach(([id, val]) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            });
+        }
 
         // ------------------ INITIALIZATION ------------------
         function init() {
@@ -419,6 +498,82 @@
             document.getElementById('waiting').textContent = waitingCount;
 
             renderStateSummary();
+            refreshAnalysisBanner();
+        }
+
+        function getLiveMetrics() {
+            const offQ = devices.filter(d => d.state === STATES.QUEUED_OFFLOAD || d.state === STATES.OFFLOADING).length;
+            const loadQ = devices.filter(d => d.state === STATES.QUEUED_LOADING || d.state === STATES.LOADING).length;
+            const waiting = vehicles.filter(v => !v.inMission && v.slots.every(s => s === null)).length;
+            const tph = shared.ticksPerHour || 20;
+            const simHours = simTick > 0 ? simTick / tph : 0;
+            return {
+                simTick,
+                missionsCompleted,
+                loadingQueue: loadQ,
+                offloadQueue: offQ,
+                waitingVehicles: waiting,
+                missionsPerHour: simHours > 0 ? round(missionsCompleted / simHours, 2) : 0,
+            };
+        }
+
+        function refreshAnalysisBanner() {
+            if (!window.MsdCapacityModel) return;
+            const params = MsdCapacityModel.paramsFromSim(config, shared);
+            lastAnalysis = MsdCapacityModel.analyze(params);
+            const metrics = getLiveMetrics();
+            const observed = MsdCapacityModel.inferObservedBottleneck(metrics);
+
+            const bn = lastAnalysis.bottleneck;
+            const banner = document.getElementById('analysis-banner');
+            banner.className = 'mb-6 rounded-3xl border px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bn-' + bn;
+
+            document.getElementById('bn-title').textContent =
+                'Predicted bottleneck: ' + bn +
+                (observed !== 'balanced' && observed !== bn ? ' (sim queues suggest ' + observed + ')' : '');
+
+            document.getElementById('bn-detail').textContent =
+                `ρ_load ${lastAnalysis.loadingUtilization} · ρ_offload ${lastAnalysis.offloadUtilization} · ` +
+                `devices ${lastAnalysis.devicesRecommended} recommended (pool ${config.totalDevices}) · ` +
+                `stations ≥ L${lastAnalysis.loadingStationsMin} O${lastAnalysis.offloadStationsMin}`;
+        }
+
+        function applyAnalysisRecommendation() {
+            if (!lastAnalysis) refreshAnalysisBanner();
+            if (!lastAnalysis) return;
+
+            config.totalDevices = clampSlider('pool', lastAnalysis.devicesRecommended, 6, 50);
+            config.numLoadingStations = clampSlider('loading-stations', lastAnalysis.loadingStationsMin, 1, 5);
+            config.numOffloadStations = clampSlider('offload-stations', lastAnalysis.offloadStationsMin, 1, 6);
+            updateConfig();
+            addLog(
+                `Applied analysis: pool=${config.totalDevices}, load=${config.numLoadingStations}, offload=${config.numOffloadStations}`,
+                'system'
+            );
+            resetSimulation();
+        }
+
+        function exportRunMetrics() {
+            const payload = {
+                exportedAt: new Date().toISOString(),
+                scenarioId: shared.scenarioId || 'baseline',
+                ticksPerHour: shared.ticksPerHour,
+                config: { ...config },
+                analysis: lastAnalysis,
+                live: getLiveMetrics(),
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `msd-ops-metrics-t${simTick}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            addLog('Exported run metrics JSON', 'system');
+        }
+
+        function round(v, d) {
+            const f = Math.pow(10, d);
+            return Math.round(v * f) / f;
         }
 
         function renderStateSummary() {
@@ -471,16 +626,23 @@
             config.totalDevices = parseInt(document.getElementById('pool').value);
             config.numLoadingStations = parseInt(document.getElementById('loading-stations').value);
             config.numOffloadStations = parseInt(document.getElementById('offload-stations').value);
+            config.missionsPerVehiclePerDay = parseFloat(document.getElementById('missions-per-day').value);
             config.missionDuration = parseInt(document.getElementById('mission').value);
             config.processTime = parseInt(document.getElementById('process').value);
 
-            // Update labels
             document.getElementById('v-val').textContent = config.numVehicles;
             document.getElementById('pool-val').textContent = config.totalDevices;
             document.getElementById('load-val').textContent = config.numLoadingStations;
             document.getElementById('offload-val').textContent = config.numOffloadStations;
+            document.getElementById('mpd-val').textContent = config.missionsPerVehiclePerDay;
             document.getElementById('mission-val').textContent = config.missionDuration;
             document.getElementById('process-val').textContent = config.processTime;
+            document.getElementById('mission-hrs').textContent = ticksToHours(config.missionDuration) + 'h';
+            document.getElementById('process-hrs').textContent = ticksToHours(config.processTime) + 'h';
+            document.getElementById('tick-hint').textContent =
+                `${shared.ticksPerHour || 20} ticks = 1 hour`;
+
+            refreshAnalysisBanner();
         }
 
         function updateSpeed() {
@@ -526,24 +688,11 @@
 
         // ------------------ BOOTSTRAP ------------------
         function bootstrap() {
-            // Set initial slider values
-            const ids = ['vehicles', 'pool', 'loading-stations', 'offload-stations', 'mission', 'process'];
-            const vals = [config.numVehicles, config.totalDevices, config.numLoadingStations, config.numOffloadStations, config.missionDuration, config.processTime];
-            ids.forEach((id, i) => {
-                document.getElementById(id).value = vals[i];
-            });
-
-            // Initial labels
-            document.getElementById('v-val').textContent = config.numVehicles;
-            document.getElementById('pool-val').textContent = config.totalDevices;
-            document.getElementById('load-val').textContent = config.numLoadingStations;
-            document.getElementById('offload-val').textContent = config.numOffloadStations;
-            document.getElementById('mission-val').textContent = config.missionDuration;
-            document.getElementById('process-val').textContent = config.processTime;
-
+            config = { ...shared.simDefaults };
+            setSliderValues();
+            updateConfig();
             init();
 
-            // Seed a few loaded devices so the simulation has something to do immediately
             setTimeout(() => {
                 let seeded = 0;
                 devices.forEach(d => {

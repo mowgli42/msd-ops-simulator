@@ -103,10 +103,13 @@ Just open `index.html` in any browser. No build step required.
 **Capacity sizing:**
 
 ```bash
-python -m analysis.capacity_model --vehicles 8 --missions-per-day 3
+python -m analysis.capacity_model --config fixtures/baseline.yaml
+python scripts/sync-config.py    # after editing baseline.yaml
 ./scripts/run-tests.sh
 python scripts/capture-screenshots.py   # refresh walkthrough images
 ```
+
+The simulator (v2.1) shows a **capacity analysis banner**, **Apply recommendation**, and **Export metrics** — linked to the same formulas as the Python CLI via `js/capacity-model.js`.
 
 ## Issue tracking (beads)
 
