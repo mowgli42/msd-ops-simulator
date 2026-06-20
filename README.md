@@ -25,7 +25,12 @@ This is a **discrete-event style simulator** running on a simple tick-based loop
 | `README.md`             | Documentation + architecture                 | You are here. Start here when extending. |
 | `MSD_Investment_Analysis.xlsx` | Investment trade-off modeling         | Contains baseline + comparison tables. |
 | `docs/WORKFLOW.md`      | Detailed state machine explanation           | Best place to understand the 11 states. |
+| `docs/WALKTHROUGH.md`   | Operator walkthrough with screenshots        | Start here to run the sim end-to-end. |
+| `docs/CAPACITY_ANALYSIS.md` | Poisson / M/M/c sizing formulas          | How many MSDs and stations you need. |
+| `docs/ROADMAP.md`       | Phased program plan                          | Sim + analysis alignment roadmap. |
+| `analysis/capacity_model.py` | CLI capacity sizing                     | `python -m analysis.capacity_model` |
 | `docs/INVESTMENT_FRAMEWORK.md` | When to invest in what                 | Decision framework for leadership. |
+| `AGENTS.md`             | Guide for AI coding agents                   | Cursor/agent onboarding. |
 
 ### State Machine (The Heart of the System)
 
@@ -92,6 +97,23 @@ stateDiagram-v2
 ## Running Locally
 
 Just open `index.html` in any browser. No build step required.
+
+**Walkthrough:** [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) (screenshots in `docs/images/`).
+
+**Capacity sizing:**
+
+```bash
+python -m analysis.capacity_model --vehicles 8 --missions-per-day 3
+./scripts/run-tests.sh
+python scripts/capture-screenshots.py   # refresh walkthrough images
+```
+
+## Issue tracking (beads)
+
+```bash
+bd ready    # next unblocked task
+bd prime    # full workflow
+```
 
 ## Investment Analysis Spreadsheet
 

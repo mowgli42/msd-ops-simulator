@@ -1,51 +1,71 @@
-# Agent Instructions
+# Agent Instructions — MSD Ops Simulator
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+This project uses **bd (beads)** for issue tracking. Run `bd prime` for full workflow context.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+## Project context
 
-## Quick Reference
+**Mission Storage Device (MSD) Operations Simulator** — a prototype decision-support tool for reusable storage device logistics in vehicle operations.
+
+| Asset | Purpose |
+|-------|---------|
+| `index.html` | Timer-driven 11-state discrete simulator (main UI) |
+| `docs/WORKFLOW.md` | State machine reference — read before changing sim logic |
+| `analysis/capacity_model.py` | M/M/c queue sizing, Poisson arrivals, bottleneck detection |
+| `docs/CAPACITY_ANALYSIS.md` | Formula reference for the analysis module |
+| `docs/INVESTMENT_FRAMEWORK.md` | Which lever to pull when a bottleneck appears |
+| `docs/WALKTHROUGH.md` | Operator walkthrough with screenshots |
+| `docs/ROADMAP.md` | Phased program plan |
+
+**Design principles:** Correct over flashy. Timer-driven state changes only. Explicit `loadingQueue` and `offloadQueue`. Ground truth = device/vehicle arrays.
+
+## Local setup
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+# Simulator — open in browser
+xdg-open index.html
+
+# Analysis CLI
+python -m analysis.capacity_model --vehicles 8 --missions-per-day 3
+
+# Tests
+./scripts/run-tests.sh
+
+# Screenshots for walkthrough
+pip install playwright pytest
+python -m playwright install chromium
+python scripts/capture-screenshots.py
 ```
 
-## Non-Interactive Shell Commands
+## Extending the simulator (`index.html`)
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
+1. Read `docs/WORKFLOW.md` and the `STATES` constant.
+2. Preserve tick order in `tick()`: stations → queues → assign → missions → offload queue.
+3. Do not drive state from DOM/animation.
+4. Document new states in `docs/WORKFLOW.md`.
 
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
+## Extending capacity analysis
 
-**Use these forms instead:**
+1. Read `docs/CAPACITY_ANALYSIS.md` first.
+2. Keep `analysis/capacity_model.py` stdlib-only unless tests need pytest.
+3. Add unit tests in `tests/` for any new formula.
+4. Bottleneck labels must match simulator observables (queue growth, vehicles waiting).
+
+## Beads
+
 ```bash
-# Force overwrite without prompting
-cp -f source dest           # NOT: cp source dest
-mv -f source dest           # NOT: mv source dest
-rm -f file                  # NOT: rm file
-
-# For recursive operations
-rm -rf directory            # NOT: rm -r directory
-cp -rf source dest          # NOT: cp -r source dest
+bd ready                              # next unblocked task
+bd show msd-ops-simulator-<id>        # issue detail
+bd update <id> --claim              # claim work
 ```
 
-**Other commands that may prompt:**
-- `scp` - use `-o BatchMode=yes` for non-interactive
-- `ssh` - use `-o BatchMode=yes` to fail instead of prompting
-- `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
+Epic: **MSD Ops — capacity analysis & walkthrough** (`.beads/msd-ops-plan.json`).
+
+## Agent rules
+
+- Use `bd` for task tracking — not markdown TODO lists.
+- Prefer small, documented changes to `index.html`; extract to `js/` only when a phase calls for it.
+- Update `docs/WALKTHROUGH.md` screenshots when UI layout changes materially.
+- Run `./scripts/run-tests.sh` after changing `analysis/`.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
 ## Beads Issue Tracker

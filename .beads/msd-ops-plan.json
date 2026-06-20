@@ -1,0 +1,173 @@
+{
+  "nodes": [
+    {
+      "key": "epic",
+      "title": "MSD Ops — capacity analysis & walkthrough",
+      "type": "epic",
+      "priority": 1,
+      "description": "Poisson/M/M/c sizing for MSD devices and loading/offload stations; sim walkthrough; investment framework. See docs/ROADMAP.md.",
+      "labels": ["msd-ops"]
+    },
+    {
+      "key": "p0",
+      "title": "Phase 0: Foundation (plan, AGENTS, walkthrough)",
+      "type": "epic",
+      "priority": 1,
+      "parent": "epic",
+      "description": "ROADMAP, CAPACITY_ANALYSIS, WALKTHROUGH, beads, initial capacity_model.py",
+      "labels": ["phase-0"]
+    },
+    {
+      "key": "p0-roadmap",
+      "title": "0.1 Program roadmap doc",
+      "type": "task",
+      "priority": 1,
+      "parent": "p0",
+      "acceptance": "docs/ROADMAP.md with phases 0-4 and dependency graph"
+    },
+    {
+      "key": "p0-capacity-doc",
+      "title": "0.2 Capacity analysis formulas doc",
+      "type": "task",
+      "priority": 1,
+      "parent": "p0",
+      "acceptance": "docs/CAPACITY_ANALYSIS.md with Erlang C, Little's Law, worked example"
+    },
+    {
+      "key": "p0-walkthrough",
+      "title": "0.3 Walkthrough + screenshots",
+      "type": "task",
+      "priority": 1,
+      "parent": "p0",
+      "depends_on": ["p0-roadmap"],
+      "acceptance": "docs/WALKTHROUGH.md and docs/images/*.png from capture script"
+    },
+    {
+      "key": "p0-analysis-skel",
+      "title": "0.4 capacity_model.py skeleton + tests",
+      "type": "task",
+      "priority": 1,
+      "parent": "p0",
+      "depends_on": ["p0-capacity-doc"],
+      "acceptance": "python -m analysis.capacity_model runs; pytest passes"
+    },
+    {
+      "key": "p1",
+      "title": "Phase 1: Capacity analysis (core)",
+      "type": "epic",
+      "priority": 1,
+      "parent": "epic",
+      "depends_on": ["p0"],
+      "description": "Full OpsParameters, CLI YAML, bottleneck tests, investment CSV",
+      "labels": ["phase-1"]
+    },
+    {
+      "key": "p1-yaml",
+      "title": "1.1 YAML fixture + config loader",
+      "type": "task",
+      "priority": 1,
+      "parent": "p1",
+      "depends_on": ["p0-analysis-skel"],
+      "acceptance": "fixtures/baseline.yaml drives CLI"
+    },
+    {
+      "key": "p1-bottleneck",
+      "title": "1.2 Bottleneck classifier regression tests",
+      "type": "task",
+      "priority": 1,
+      "parent": "p1",
+      "depends_on": ["p0-analysis-skel"],
+      "acceptance": "tests cover loading/offload/devices cases"
+    },
+    {
+      "key": "p1-csv",
+      "title": "1.3 Sensitivity CSV export",
+      "type": "task",
+      "priority": 2,
+      "parent": "p1",
+      "depends_on": ["p1-yaml"],
+      "acceptance": "--format csv sweeps station counts"
+    },
+    {
+      "key": "p2",
+      "title": "Phase 2: Simulator ↔ analysis alignment",
+      "type": "epic",
+      "priority": 1,
+      "parent": "epic",
+      "depends_on": ["p1"],
+      "labels": ["phase-2"]
+    },
+    {
+      "key": "p2-ticks",
+      "title": "2.1 Map simulator ticks to hours",
+      "type": "task",
+      "priority": 1,
+      "parent": "p2",
+      "depends_on": ["p1-yaml"],
+      "acceptance": "Shared fixtures/baseline.yaml; documented conversion"
+    },
+    {
+      "key": "p2-apply",
+      "title": "2.2 Apply recommendation button in sim UI",
+      "type": "task",
+      "priority": 2,
+      "parent": "p2",
+      "depends_on": ["p2-ticks"],
+      "acceptance": "Button sets sliders from analysis JSON"
+    },
+    {
+      "key": "p2-banner",
+      "title": "2.3 Bottleneck banner in simulator",
+      "type": "task",
+      "priority": 2,
+      "parent": "p2",
+      "depends_on": ["p1-bottleneck", "p2-ticks"],
+      "acceptance": "UI shows loading/offload/devices label"
+    },
+    {
+      "key": "p3",
+      "title": "Phase 3: Investment framework polish",
+      "type": "epic",
+      "priority": 2,
+      "parent": "epic",
+      "depends_on": ["p1"],
+      "labels": ["phase-3"]
+    },
+    {
+      "key": "p3-invest",
+      "title": "3.1 Complete INVESTMENT_FRAMEWORK examples",
+      "type": "task",
+      "priority": 2,
+      "parent": "p3",
+      "depends_on": ["p1-csv"],
+      "acceptance": "Worked leadership examples in doc"
+    },
+    {
+      "key": "p4",
+      "title": "Phase 4: Validation (Monte Carlo + sim regression)",
+      "type": "epic",
+      "priority": 2,
+      "parent": "epic",
+      "depends_on": ["p2", "p3"],
+      "labels": ["phase-4"]
+    },
+    {
+      "key": "p4-mc",
+      "title": "4.1 Optional Poisson Monte Carlo arrivals",
+      "type": "task",
+      "priority": 3,
+      "parent": "p4",
+      "depends_on": ["p1-bottleneck"],
+      "acceptance": "Flag produces wait-time distribution"
+    },
+    {
+      "key": "p4-regress",
+      "title": "4.2 Analysis vs simulator steady-state regression",
+      "type": "task",
+      "priority": 1,
+      "parent": "p4",
+      "depends_on": ["p2-banner"],
+      "acceptance": "Predicted bottleneck matches sim within tolerance"
+    }
+  ]
+}
