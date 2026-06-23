@@ -40,6 +40,54 @@
         return params.offloadTimeHours;
     }
 
+    function fleetFeasible(params, vehicles, atTarget) {
+        const trial = { ...params, vehicles };
+        const result = analyze(trial);
+        if (!result.loadingStable) return { ok: false, factor: 'loading' };
+        if (!result.offloadStable) return { ok: false, factor: 'offload' };
+        if (result.devicesRecommended > params.devicePool) return { ok: false, factor: 'devices' };
+        if (atTarget) {
+            if (result.loadingUtilization > params.utilizationTarget) return { ok: false, factor: 'loading' };
+            if (result.offloadUtilization > params.utilizationTarget) return { ok: false, factor: 'offload' };
+        }
+        return { ok: true, factor: 'balanced' };
+    }
+
+    function maxSustainableVehicles(params, maxSearch) {
+        const cap = maxSearch || 512;
+
+        function search(atTarget) {
+            let lo = 1;
+            let hi = Math.max(cap, params.vehicles);
+            let best = 0;
+            let limit = 'balanced';
+            while (lo <= hi) {
+                const mid = Math.floor((lo + hi) / 2);
+                const { ok, factor } = fleetFeasible(params, mid, atTarget);
+                if (ok) {
+                    best = mid;
+                    lo = mid + 1;
+                } else {
+                    limit = factor;
+                    hi = mid - 1;
+                }
+            }
+            if (best > 0) {
+                limit = fleetFeasible(params, best + 1, atTarget).factor;
+            }
+            return { max: best, limit };
+        }
+
+        const stable = search(false);
+        const target = search(true);
+        return {
+            maxVehiclesStable: stable.max,
+            maxVehiclesAtTarget: target.max,
+            limitingFactorStable: stable.limit,
+            limitingFactorTarget: target.limit,
+        };
+    }
+
     function analyze(params) {
         const notes = [];
         const lambdaRate =
@@ -190,6 +238,7 @@
         effectiveOffloadTicks,
         iterOffloadSensitivity,
         inferObservedBottleneck,
+        maxSustainableVehicles,
         erlangC,
     };
 })(window);

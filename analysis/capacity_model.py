@@ -40,6 +40,14 @@ class OpsParameters:
 
 
 @dataclass(frozen=True)
+class MaxFleetResult:
+    max_vehicles_stable: int
+    max_vehicles_at_target: int
+    limiting_factor_stable: str
+    limiting_factor_target: str
+
+
+@dataclass(frozen=True)
 class CapacityResult:
     arrival_rate_per_hour: float
     service_rate_per_station: float
@@ -93,6 +101,54 @@ def stations_required(lambda_rate: float, mu: float, utilization_target: float) 
     if lambda_rate <= 0 or mu <= 0 or utilization_target <= 0:
         return 1
     return max(1, math.ceil(lambda_rate / (mu * utilization_target)))
+
+
+def _fleet_feasible(params: OpsParameters, vehicles: int, *, at_target: bool) -> tuple[bool, str]:
+    """Return whether `vehicles` is supportable and which constraint binds next."""
+    trial = OpsParameters(**{**asdict(params), "vehicles": vehicles})
+    result = analyze(trial)
+    if not result.loading_stable:
+        return False, "loading"
+    if not result.offload_stable:
+        return False, "offload"
+    if result.devices_recommended > params.device_pool:
+        return False, "devices"
+    if at_target:
+        if result.loading_utilization > params.utilization_target:
+            return False, "loading"
+        if result.offload_utilization > params.utilization_target:
+            return False, "offload"
+    return True, "balanced"
+
+
+def max_sustainable_vehicles(params: OpsParameters, *, max_search: int = 512) -> MaxFleetResult:
+    """Binary search for max fleet size with stable queues and pool headroom."""
+
+    def search(at_target: bool) -> tuple[int, str]:
+        lo, hi = 1, max(max_search, params.vehicles)
+        best = 0
+        limit = "balanced"
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            ok, factor = _fleet_feasible(params, mid, at_target=at_target)
+            if ok:
+                best = mid
+                lo = mid + 1
+            else:
+                limit = factor
+                hi = mid - 1
+        if best > 0:
+            _, limit = _fleet_feasible(params, best + 1, at_target=at_target)
+        return best, limit
+
+    stable_n, stable_lim = search(at_target=False)
+    target_n, target_lim = search(at_target=True)
+    return MaxFleetResult(
+        max_vehicles_stable=stable_n,
+        max_vehicles_at_target=target_n,
+        limiting_factor_stable=stable_lim,
+        limiting_factor_target=target_lim,
+    )
 
 
 def analyze(params: OpsParameters) -> CapacityResult:
@@ -179,6 +235,7 @@ def analyze(params: OpsParameters) -> CapacityResult:
 
 
 def format_summary(params: OpsParameters, result: CapacityResult) -> str:
+    fleet = max_sustainable_vehicles(params)
     lines = [
         "MSD Ops Capacity Analysis",
         "========================",
@@ -196,9 +253,18 @@ def format_summary(params: OpsParameters, result: CapacityResult) -> str:
         f"Devices recommended:   {result.devices_recommended} (pool={params.device_pool})",
         "",
         f"Bottleneck:            {result.bottleneck}",
+        "",
+        f"Max vehicles (stable): {fleet.max_vehicles_stable} (limit: {fleet.limiting_factor_stable})",
+        f"Max vehicles (@ {params.utilization_target:.0%} ρ): {fleet.max_vehicles_at_target} "
+        f"(limit: {fleet.limiting_factor_target})",
     ]
     if result.notes:
         lines.append("Notes: " + "; ".join(result.notes))
+    if params.vehicles > fleet.max_vehicles_at_target:
+        lines.append(
+            f"Warning: {params.vehicles} vehicles exceeds safe operating point "
+            f"({fleet.max_vehicles_at_target} @ {params.utilization_target:.0%} utilization)"
+        )
     return "\n".join(lines)
 
 
