@@ -62,6 +62,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 python scripts/sync-config.py
 ./scripts/run-tests.sh
 python -m analysis.capacity_model --config fixtures/baseline.yaml
+python -m analysis.capacity_model --config fixtures/baseline.yaml --monte-carlo 200
 python -m analysis.regression
 ./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
 ```
@@ -74,7 +75,8 @@ Refresh screenshots: `python scripts/capture-screenshots.py` (requires Playwrigh
 |------|---------|
 | `index.html` | Interactive simulator + analysis banner |
 | `fixtures/baseline.yaml` | Shared scenario (20 ticks = 1 hour) |
-| `analysis/capacity_model.py` | M/M/c sizing CLI |
+| `analysis/capacity_model.py` | M/M/c sizing CLI (`--monte-carlo N` for Poisson validation) |
+| `analysis/monte_carlo.py` | Optional offload wait distribution sampler |
 | `analysis/regression.py` | Analysis vs sim alignment checks |
 | `analysis/sensitivity.py` | CSV investment sweeps |
 | `docs/CAPACITY_ANALYSIS.md` | Queueing formulas |

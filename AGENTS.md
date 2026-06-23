@@ -17,7 +17,8 @@ The codebase is structured to be **easy for Cursor and other AI agents to unders
 | `scripts/sync-config.py` | Regenerates `js/shared-config.js` after YAML edits |
 | `js/capacity-model.js` | Browser port of `analysis/capacity_model.py` |
 | `js/shared-config.js` | Auto-generated sim defaults from YAML |
-| `analysis/capacity_model.py` | M/M/c queue sizing and bottleneck detection |
+| `analysis/capacity_model.py` | M/M/c queue sizing and bottleneck detection (`--monte-carlo N`) |
+| `analysis/monte_carlo.py` | Poisson M/M/c offload wait distribution (validation) |
 | `analysis/config_loader.py` | YAML loader + tick ↔ hour conversion |
 | `analysis/sim_engine.py` | Python discrete sim (regression harness) |
 | `analysis/regression.py` | Analysis vs sim steady-state checks |
@@ -103,7 +104,6 @@ python -m analysis.regression
 See `docs/ROADMAP.md` and `bd ready`. Ideas not yet scheduled:
 
 - Cost modeling in simulator UI
-- Monte Carlo mission arrivals (`msd-ops-simulator-6x1`)
 - Vehicle classes with varying port counts
 - Optional FastAPI backend for scenario persistence
 - SvelteKit UI split (only if explicitly requested)
