@@ -21,6 +21,20 @@
         .sens-bn-loading { background: #8957e533; color: #a371f7; }
         .sens-bn-devices { background: #f8514933; color: #ff7b72; }
         .sens-bn-balanced { background: #23863633; color: #3fb950; }
+        .queue-wait-highlight {
+            box-shadow: 0 0 0 2px #eab308, 0 0 10px #eab30855;
+            border-color: #eab308 !important;
+        }
+        .device-chip, .station-box {
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 0.35rem 0.5rem;
+            font-size: 10px;
+            font-family: ui-monospace, monospace;
+            background: #1e293b;
+        }
+        .fleet-warning { border-color: #f85149; background: #f8514922; color: #ff7b72; }
+        .wait-bar { background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%); border-radius: 2px 2px 0 0; min-width: 4px; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
@@ -93,6 +107,7 @@
                 <div class="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Capacity analysis</div>
                 <div class="font-semibold text-lg" id="bn-title">Bottleneck: balanced</div>
                 <div class="text-xs text-slate-400 mt-1" id="bn-detail">ρ_load — · ρ_offload — · devices —</div>
+                <div id="fleet-warning" class="hidden mt-2 text-xs px-3 py-2 rounded-xl border fleet-warning"></div>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button onclick="applyAnalysisRecommendation()" id="apply-btn"
@@ -119,12 +134,17 @@
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="flex justify-between text-xs mb-1"><span>Vehicles</span><span id="v-val" class="font-mono text-emerald-400">8</span></div>
-                            <input type="range" id="vehicles" min="2" max="16" value="8" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span>Vehicles</span>
+                                <span id="v-val" class="font-mono text-emerald-400">8</span>
+                            </div>
+                            <input type="range" id="vehicles" min="1" max="32" value="8" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <div class="text-[10px] text-slate-500 mt-0.5">Range 1–32 for stress-testing fleet size</div>
                         </div>
                         <div>
                             <div class="flex justify-between text-xs mb-1"><span>Pool Size (MSDs)</span><span id="pool-val" class="font-mono text-emerald-400">20</span></div>
-                            <input type="range" id="pool" min="6" max="50" value="20" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <input type="range" id="pool" min="1" max="64" value="20" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <div class="text-[10px] text-slate-500 mt-0.5">Range 1–64 device inventory</div>
                         </div>
                     </div>
 
@@ -139,11 +159,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="flex justify-between text-xs mb-1"><span>Loading Stations</span><span id="load-val" class="font-mono text-emerald-400">2</span></div>
-                            <input type="range" id="loading-stations" min="1" max="5" value="2" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <input type="range" id="loading-stations" min="1" max="16" value="2" class="w-full accent-emerald-500" oninput="updateConfig()">
                         </div>
                         <div>
                             <div class="flex justify-between text-xs mb-1"><span>Offload Stations</span><span id="offload-val" class="font-mono text-emerald-400">3</span></div>
-                            <input type="range" id="offload-stations" min="1" max="6" value="3" class="w-full accent-emerald-500" oninput="updateConfig()">
+                            <input type="range" id="offload-stations" min="1" max="16" value="3" class="w-full accent-emerald-500" oninput="updateConfig()">
                         </div>
                     </div>
 
@@ -207,6 +227,52 @@
                 <div id="log" class="flex-1 overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono h-[210px]"></div>
             </div>
 
+            <!-- Workflow visualization -->
+            <div class="xl:col-span-12 bg-slate-900 border border-slate-700 rounded-3xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                    <h3 class="font-semibold text-sm flex items-center gap-x-2">
+                        <i class="fa-solid fa-diagram-project"></i> WORKFLOW STATUS
+                    </h3>
+                    <div class="text-[10px] text-slate-400 flex flex-wrap gap-3">
+                        <span class="inline-flex items-center gap-1">
+                            <span class="inline-block w-3 h-3 rounded border-2 border-yellow-400 shadow-[0_0_6px_#eab30866]"></span>
+                            Waiting for load/offload station
+                        </span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-widest text-violet-400 mb-2">Loading</div>
+                        <div id="loading-station-viz" class="flex flex-wrap gap-2 mb-3"></div>
+                        <div id="device-load-viz" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] uppercase tracking-widest text-amber-400 mb-2">Offload</div>
+                        <div id="offload-station-viz" class="flex flex-wrap gap-2 mb-3"></div>
+                        <div id="device-offload-viz" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue wait histogram -->
+            <div class="xl:col-span-12 bg-slate-900 border border-slate-700 rounded-3xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                    <h3 class="font-semibold text-sm flex items-center gap-x-2">
+                        <i class="fa-solid fa-chart-column"></i> QUEUE WAIT DISTRIBUTION
+                    </h3>
+                    <div class="text-[10px] text-slate-400">Active station queue waits only (excludes idle/awaiting)</div>
+                </div>
+                <div id="wait-stats" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3 text-xs"></div>
+                <div id="wait-chart-placeholder" class="text-xs text-slate-500 py-8 text-center border border-dashed border-slate-700 rounded-2xl">
+                    Run the simulation to collect queue wait samples
+                </div>
+                <div id="wait-chart-wrap" class="hidden">
+                    <div class="text-[10px] text-slate-400 mb-1">Wait time (hours) → count</div>
+                    <div id="wait-histogram" class="flex items-end gap-0.5 h-36 border-b border-slate-700 pb-1"></div>
+                    <div id="wait-histogram-labels" class="flex gap-0.5 text-[9px] text-slate-500 mt-1 font-mono"></div>
+                </div>
+            </div>
+
             <!-- Device State Summary -->
             <div class="xl:col-span-12 bg-slate-900 border border-slate-700 rounded-3xl p-5">
                 <h3 class="font-semibold mb-3 text-sm">DEVICE STATE SUMMARY</h3>
@@ -254,6 +320,16 @@
         };
 
         let lastAnalysis = null;
+        let lastFleet = null;
+
+        const SLIDER_LIMITS = {
+            vehicles: { min: 1, max: 32 },
+            pool: { min: 1, max: 64 },
+            loadingStations: { min: 1, max: 16 },
+            offloadStations: { min: 1, max: 16 },
+        };
+
+        let queueWaitSamples = [];
 
         // ------------------ STATE DEFINITIONS ------------------
         const STATES = {
@@ -292,9 +368,21 @@
 
         function clampSlider(id, value, min, max) {
             const el = document.getElementById(id);
-            const v = Math.max(min, Math.min(max, value));
+            const lo = min != null ? min : parseInt(el.min, 10);
+            const hi = max != null ? max : parseInt(el.max, 10);
+            const v = Math.max(lo, Math.min(hi, value));
             el.value = v;
             return v;
+        }
+
+        function sliderLimit(key) {
+            return SLIDER_LIMITS[key] || { min: 1, max: 32 };
+        }
+
+        function recordQueueWait(kind, waitTicks) {
+            if (waitTicks <= 0) return;
+            queueWaitSamples.push({ kind, waitTicks });
+            if (queueWaitSamples.length > 600) queueWaitSamples.shift();
         }
 
         function setSliderValues() {
@@ -340,6 +428,7 @@
             totalMissionsStarted = 0;
             loadingQueue = [];
             offloadQueue = [];
+            queueWaitSamples = [];
 
             // Create devices
             devices = [];
@@ -349,7 +438,8 @@
                     state: STATES.READY,
                     timer: 0,
                     vehicleId: null,
-                    slotIndex: null
+                    slotIndex: null,
+                    queuedAtTick: null,
                 });
             }
 
@@ -404,6 +494,10 @@
                     const deviceId = loadingQueue.shift();
                     const device = devices.find(d => d.id === deviceId);
                     if (device) {
+                        if (device.queuedAtTick != null) {
+                            recordQueueWait('loading', simTick - device.queuedAtTick);
+                            device.queuedAtTick = null;
+                        }
                         station.currentDeviceId = deviceId;
                         station.busyUntil = simTick + config.loadTime;
                         device.state = STATES.LOADING;
@@ -431,6 +525,10 @@
                     const deviceId = offloadQueue.shift();
                     const device = devices.find(d => d.id === deviceId);
                     if (device) {
+                        if (device.queuedAtTick != null) {
+                            recordQueueWait('offload', simTick - device.queuedAtTick);
+                            device.queuedAtTick = null;
+                        }
                         station.currentDeviceId = deviceId;
                         station.busyUntil = simTick + effectiveOffloadTicks();
                         device.state = STATES.OFFLOADING;
@@ -459,6 +557,7 @@
                 if (device.state === STATES.READY && !loadingQueue.includes(device.id)) {
                     loadingQueue.push(device.id);
                     device.state = STATES.QUEUED_LOADING;
+                    device.queuedAtTick = simTick;
                 }
             });
         }
@@ -537,6 +636,7 @@
                 if (device.state === STATES.MISSION_DONE && !offloadQueue.includes(device.id)) {
                     offloadQueue.push(device.id);
                     device.state = STATES.QUEUED_OFFLOAD;
+                    device.queuedAtTick = simTick;
                 }
             });
         }
@@ -561,6 +661,8 @@
             document.getElementById('waiting').textContent = waitingCount;
 
             renderStateSummary();
+            renderWorkflowViz();
+            renderWaitHistogram();
             refreshAnalysisBanner();
             refreshSensitivityTable();
         }
@@ -585,6 +687,7 @@
             if (!window.MsdCapacityModel) return;
             const params = MsdCapacityModel.paramsFromSim(config, shared);
             lastAnalysis = MsdCapacityModel.analyze(params);
+            lastFleet = MsdCapacityModel.maxSustainableVehicles(params);
             const metrics = getLiveMetrics();
             const observed = MsdCapacityModel.inferObservedBottleneck(metrics);
 
@@ -600,14 +703,27 @@
                 `ρ_load ${lastAnalysis.loadingUtilization} · ρ_offload ${lastAnalysis.offloadUtilization} · ` +
                 `offload ${lastAnalysis.effectiveOffloadHours}h · ` +
                 `devices ${lastAnalysis.devicesRecommended} recommended (pool ${config.totalDevices}) · ` +
-                `stations ≥ L${lastAnalysis.loadingStationsMin} O${lastAnalysis.offloadStationsMin}`;
+                `stations ≥ L${lastAnalysis.loadingStationsMin} O${lastAnalysis.offloadStationsMin} · ` +
+                `max fleet ${lastFleet.maxVehiclesAtTarget} @ ${Math.round((shared.utilizationTarget || 0.85) * 100)}% ρ`;
+
+            const warnEl = document.getElementById('fleet-warning');
+            if (config.numVehicles > lastFleet.maxVehiclesAtTarget) {
+                warnEl.classList.remove('hidden');
+                warnEl.textContent =
+                    `⚠ ${config.numVehicles} vehicles exceeds safe operating point ` +
+                    `(${lastFleet.maxVehiclesAtTarget} max @ ${Math.round((shared.utilizationTarget || 0.85) * 100)}% utilization; ` +
+                    `limit: ${lastFleet.limitingFactorTarget})`;
+            } else {
+                warnEl.classList.add('hidden');
+                warnEl.textContent = '';
+            }
         }
 
         function refreshSensitivityTable() {
             if (!window.MsdCapacityModel) return;
             const params = MsdCapacityModel.paramsFromSim(config, shared);
             const pctValues = [0.5, 0.7, 0.9, 1.0, 1.2];
-            const stationsRange = [1, 2, 3, 4, 5, 6];
+            const stationsRange = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
             const rows = MsdCapacityModel.iterOffloadSensitivity(params, { offloadPctValues: pctValues, offloadStationsRange: stationsRange });
 
             const head = document.getElementById('sensitivity-head');
@@ -638,9 +754,12 @@
             if (!lastAnalysis) refreshAnalysisBanner();
             if (!lastAnalysis) return;
 
-            config.totalDevices = clampSlider('pool', lastAnalysis.devicesRecommended, 6, 50);
-            config.numLoadingStations = clampSlider('loading-stations', lastAnalysis.loadingStationsMin, 1, 5);
-            config.numOffloadStations = clampSlider('offload-stations', lastAnalysis.offloadStationsMin, 1, 6);
+            const poolLim = sliderLimit('pool');
+            const loadLim = sliderLimit('loadingStations');
+            const offLim = sliderLimit('offloadStations');
+            config.totalDevices = clampSlider('pool', lastAnalysis.devicesRecommended, poolLim.min, poolLim.max);
+            config.numLoadingStations = clampSlider('loading-stations', lastAnalysis.loadingStationsMin, loadLim.min, loadLim.max);
+            config.numOffloadStations = clampSlider('offload-stations', lastAnalysis.offloadStationsMin, offLim.min, offLim.max);
             updateConfig();
             addLog(
                 `Applied analysis: pool=${config.totalDevices}, load=${config.numLoadingStations}, offload=${config.numOffloadStations}`,
@@ -685,7 +804,8 @@
                 if (count === 0) return;
 
                 const div = document.createElement('div');
-                div.className = `flex justify-between items-center px-3 py-1.5 bg-slate-800 rounded-2xl`;
+                const waitCls = isQueueWaitState(state) ? 'queue-wait-highlight' : '';
+                div.className = `flex justify-between items-center px-3 py-1.5 bg-slate-800 rounded-2xl ${waitCls}`;
                 div.innerHTML = `
                     <span class="state-pill ${getStateColorClass(state)}">${state}</span>
                     <span class="font-mono font-semibold">${count}</span>
@@ -700,6 +820,125 @@
             if ([STATES.OFFLOADING, STATES.QUEUED_OFFLOAD, STATES.MISSION_DONE].includes(state)) return 'bg-amber-500/20 text-amber-400';
             if ([STATES.LOADING, STATES.QUEUED_LOADING].includes(state)) return 'bg-violet-500/20 text-violet-400';
             return 'bg-slate-500/20 text-slate-400';
+        }
+
+        function isQueueWaitState(state) {
+            return state === STATES.QUEUED_LOADING || state === STATES.QUEUED_OFFLOAD;
+        }
+
+        function renderWorkflowViz() {
+            const loadStationEl = document.getElementById('loading-station-viz');
+            const offStationEl = document.getElementById('offload-station-viz');
+            const loadDevEl = document.getElementById('device-load-viz');
+            const offDevEl = document.getElementById('device-offload-viz');
+            if (!loadStationEl) return;
+
+            const loadBacklog = loadingQueue.length;
+            const offBacklog = offloadQueue.length;
+            const allLoadBusy = loadingStations.length > 0 && loadingStations.every(s => s.currentDeviceId !== null);
+            const allOffBusy = offloadStations.length > 0 && offloadStations.every(s => s.currentDeviceId !== null);
+
+            loadStationEl.innerHTML = loadingStations.map(st => {
+                const busy = st.currentDeviceId !== null;
+                const waiting = loadBacklog > 0 && (busy || allLoadBusy);
+                const cls = 'station-box ' + (waiting ? 'queue-wait-highlight' : '');
+                const label = busy ? `S${st.id} · #${st.currentDeviceId}` : `S${st.id} · idle`;
+                return `<div class="${cls}">${label}</div>`;
+            }).join('') || '<span class="text-slate-500 text-xs">No stations</span>';
+
+            offStationEl.innerHTML = offloadStations.map(st => {
+                const busy = st.currentDeviceId !== null;
+                const waiting = offBacklog > 0 && (busy || allOffBusy);
+                const cls = 'station-box ' + (waiting ? 'queue-wait-highlight' : '');
+                const label = busy ? `S${st.id} · #${st.currentDeviceId}` : `S${st.id} · idle`;
+                return `<div class="${cls}">${label}</div>`;
+            }).join('') || '<span class="text-slate-500 text-xs">No stations</span>';
+
+            const loadDevices = devices.filter(d =>
+                [STATES.QUEUED_LOADING, STATES.LOADING].includes(d.state)
+            );
+            const offDevices = devices.filter(d =>
+                [STATES.QUEUED_OFFLOAD, STATES.OFFLOADING, STATES.MISSION_DONE].includes(d.state)
+            );
+
+            loadDevEl.innerHTML = loadDevices.map(d => {
+                const waitCls = isQueueWaitState(d.state) ? 'queue-wait-highlight' : '';
+                return `<div class="device-chip ${waitCls} ${getStateColorClass(d.state)}">#${d.id} ${d.state}</div>`;
+            }).join('') || '<span class="text-slate-500 text-xs">—</span>';
+
+            offDevEl.innerHTML = offDevices.map(d => {
+                const waitCls = isQueueWaitState(d.state) ? 'queue-wait-highlight' : '';
+                return `<div class="device-chip ${waitCls} ${getStateColorClass(d.state)}">#${d.id} ${d.state}</div>`;
+            }).join('') || '<span class="text-slate-500 text-xs">—</span>';
+        }
+
+        function percentile(sorted, p) {
+            if (!sorted.length) return 0;
+            const rank = (sorted.length - 1) * p;
+            const lo = Math.floor(rank);
+            const hi = Math.ceil(rank);
+            if (lo === hi) return sorted[lo];
+            return sorted[lo] * (1 - (rank - lo)) + sorted[hi] * (rank - lo);
+        }
+
+        function renderWaitHistogram() {
+            const placeholder = document.getElementById('wait-chart-placeholder');
+            const wrap = document.getElementById('wait-chart-wrap');
+            const statsEl = document.getElementById('wait-stats');
+            const histEl = document.getElementById('wait-histogram');
+            const labelsEl = document.getElementById('wait-histogram-labels');
+            if (!placeholder || !wrap) return;
+
+            if (queueWaitSamples.length === 0) {
+                placeholder.classList.remove('hidden');
+                wrap.classList.add('hidden');
+                statsEl.innerHTML = '';
+                return;
+            }
+
+            placeholder.classList.add('hidden');
+            wrap.classList.remove('hidden');
+
+            const tph = shared.ticksPerHour || 20;
+            const hours = queueWaitSamples.map(s => s.waitTicks / tph);
+            const sorted = [...hours].sort((a, b) => a - b);
+            const mean = hours.reduce((a, b) => a + b, 0) / hours.length;
+            const median = percentile(sorted, 0.5);
+            const p95 = percentile(sorted, 0.95);
+            const pctWaited = (hours.filter(h => h > 0).length / hours.length) * 100;
+            const loadN = queueWaitSamples.filter(s => s.kind === 'loading').length;
+            const offN = queueWaitSamples.filter(s => s.kind === 'offload').length;
+
+            const stat = (label, val) =>
+                `<div class="bg-slate-800 rounded-xl px-3 py-2"><div class="text-slate-500 text-[10px]">${label}</div><div class="font-mono font-semibold">${val}</div></div>`;
+
+            statsEl.innerHTML =
+                stat('Samples', queueWaitSamples.length) +
+                stat('Mean wait', mean.toFixed(2) + 'h') +
+                stat('Median', median.toFixed(2) + 'h') +
+                stat('P95', p95.toFixed(2) + 'h') +
+                stat('Load / Off', `${loadN} / ${offN}`);
+
+            const maxH = Math.max(...hours, 0.1);
+            const binCount = 12;
+            const binWidth = maxH / binCount;
+            const bins = Array(binCount).fill(0);
+            hours.forEach(h => {
+                const idx = Math.min(binCount - 1, Math.floor(h / binWidth));
+                bins[idx]++;
+            });
+            const maxCount = Math.max(...bins, 1);
+
+            histEl.innerHTML = bins.map((count, i) => {
+                const h = (100 * count) / maxCount;
+                const title = `${(i * binWidth).toFixed(2)}–${((i + 1) * binWidth).toFixed(2)}h: ${count}`;
+                return `<div class="wait-bar flex-1" style="height:${Math.max(2, h)}%" title="${title}"></div>`;
+            }).join('');
+
+            labelsEl.innerHTML = bins.map((_, i) => {
+                const start = (i * binWidth).toFixed(1);
+                return `<div class="flex-1 text-center">${start}</div>`;
+            }).join('');
         }
 
         function addLog(message, type = "info") {
@@ -751,6 +990,8 @@
 
             refreshAnalysisBanner();
             refreshSensitivityTable();
+            renderWorkflowViz();
+            renderWaitHistogram();
         }
 
         function updateSpeed() {
