@@ -222,6 +222,13 @@ def main() -> int:
     parser.add_argument("--offload-stations", type=int, default=None)
     parser.add_argument("--device-pool", type=int, default=None)
     parser.add_argument("--format", choices=("text", "json", "csv"), default="text")
+    parser.add_argument(
+        "--monte-carlo",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Run N Poisson Monte Carlo replications for offload wait distribution",
+    )
     args = parser.parse_args()
 
     if args.config:
@@ -263,12 +270,28 @@ def main() -> int:
     result = analyze(params)
 
     if args.format == "json":
-        print(json.dumps({"parameters": asdict(params), "result": asdict(result)}, indent=2))
+        payload: dict = {"parameters": asdict(params), "result": asdict(result)}
+        if args.monte_carlo > 0:
+            from analysis.monte_carlo import monte_carlo_offload_waits, summary_to_dict
+
+            payload["monte_carlo"] = summary_to_dict(
+                monte_carlo_offload_waits(params, replications=args.monte_carlo)
+            )
+        print(json.dumps(payload, indent=2))
     elif args.format == "csv":
         row = {**asdict(params), **{f"result_{k}": v for k, v in asdict(result).items() if k != "notes"}}
         print(",".join(str(row[k]) for k in row))
     else:
         print(format_summary(params, result))
+        if args.monte_carlo > 0:
+            from analysis.monte_carlo import format_monte_carlo_summary, monte_carlo_offload_waits
+
+            print()
+            print(
+                format_monte_carlo_summary(
+                    monte_carlo_offload_waits(params, replications=args.monte_carlo)
+                )
+            )
     return 0
 
 
