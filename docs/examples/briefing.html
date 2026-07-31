@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MSD Ops Capacity Briefing</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+:root {
+  --bg: #f3efe6;
+  --ink: #1c1a16;
+  --muted: #5c564c;
+  --panel: #fffdf8;
+  --line: #d9d0c0;
+  --ok: #2f6f4e;
+  --warn: #c9852a;
+  --critical: #b33a3a;
+  --accent: #1f4b7a;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: "Source Sans 3", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", "Consolas", monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at top left, rgba(31,75,122,0.08), transparent 40%),
+    linear-gradient(180deg, #ebe4d6 0%, var(--bg) 40%, #e7e1d4 100%);
+  font-family: var(--font-body);
+  line-height: 1.45;
+}
+.page { max-width: 1080px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+.hero { margin-bottom: 1.75rem; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; color: var(--accent); margin: 0 0 0.4rem; }
+h1 { font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 2.4rem); margin: 0 0 0.4rem; }
+h2 { font-family: var(--font-display); font-size: 1.35rem; margin: 0 0 0.75rem; }
+.sub, .muted { color: var(--muted); }
+section { background: var(--panel); border: 1px solid var(--line); padding: 1.1rem 1.2rem 1.3rem; margin-bottom: 1rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.card { border: 1px solid var(--line); padding: 0.7rem 0.8rem; background: #faf7f0; }
+.card .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.card .value { font-family: var(--font-display); font-size: 1.25rem; margin-top: 0.2rem; }
+.card.ok .value { color: var(--ok); }
+.card.warn .value { color: var(--warn); }
+.card.critical .value { color: var(--critical); }
+.callout { padding: 0.75rem 0.9rem; border-left: 4px solid var(--accent); background: #f7f3ea; }
+.callout.warn { border-left-color: var(--warn); }
+.callout.critical { border-left-color: var(--critical); }
+.callout.ok { border-left-color: var(--ok); }
+.grid-2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1rem; }
+@media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th, td { text-align: left; padding: 0.4rem 0.45rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+.pill { display: inline-block; padding: 0.1rem 0.4rem; background: #e8e0d2; font-size: 0.8rem; }
+.narrative {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: #1c1a16;
+  color: #f3efe6;
+  padding: 1rem;
+  overflow-x: auto;
+}
+code { font-family: var(--font-mono); font-size: 0.88em; }
+</style>
+</head>
+<body>
+  <div class="page">
+    
+<header class="hero">
+  <p class="eyebrow">MSD Ops Simulator · Decision support</p>
+  <h1>MSD Ops Capacity Briefing</h1>
+  <p class="sub">Generated 2026-07-31 10:15 UTC. Edit YAML config / sweep ranges and regenerate to update.</p>
+</header>
+
+<section>
+  <h2>Snapshot</h2>
+  <div class="cards"><div class="card ok"><div class="label">Primary constraint</div><div class="value">BALANCED</div></div><div class="card neutral"><div class="label">Arrival λ</div><div class="value">1.0 /h</div></div><div class="card neutral"><div class="label">ρ loading</div><div class="value">0.25</div></div><div class="card neutral"><div class="label">ρ offload</div><div class="value">0.1667</div></div><div class="card neutral"><div class="label">Devices rec.</div><div class="value">8 / 20</div></div><div class="card neutral"><div class="label">Max fleet @ target</div><div class="value">20</div></div></div>
+  <div class="callout ok">
+    <strong>Bottleneck callout:</strong>
+    Primary constraint is <code>balanced</code>.
+    Vehicle tempo feasible=True;
+    ports feasible=True;
+    device reuse=1.0;
+    approx. mission-start delay=0.0 h.
+  </div>
+</section>
+
+<section class="grid-2">
+  <div>
+    <h2>Configuration</h2>
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <tbody><tr><td><code>vehicles</code></td><td>8</td></tr><tr><td><code>missions_per_vehicle_per_day</code></td><td>3.0</td></tr><tr><td><code>mission_duration_hours</code></td><td>2.0</td></tr><tr><td><code>load_time_hours</code></td><td>0.5</td></tr><tr><td><code>offload_time_hours</code></td><td>0.5</td></tr><tr><td><code>install_time_hours</code></td><td>0.0</td></tr><tr><td><code>sanitize_time_hours</code></td><td>0.0</td></tr><tr><td><code>loading_stations</code></td><td>2</td></tr><tr><td><code>offload_stations</code></td><td>3</td></tr><tr><td><code>device_pool</code></td><td>20</td></tr><tr><td><code>ports_per_vehicle</code></td><td>2</td></tr><tr><td><code>devices_per_mission</code></td><td>1</td></tr><tr><td><code>min_devices_per_vehicle</code></td><td>1</td></tr><tr><td><code>preload_all_ports</code></td><td>False</td></tr><tr><td><code>utilization_target</code></td><td>0.85</td></tr></tbody>
+    </table>
+  </div>
+  <div>
+    <h2>Constraint utilization</h2>
+    <canvas id="constraintChart" height="220"></canvas>
+  </div>
+</section>
+
+<section>
+  <h2>Preferred scenarios</h2>
+  <p class="muted">Explore loading/offload station counts and device pool size around the baseline fleet. Prefer stable, below-target utilization with lean capital.</p>
+  <p class="muted">Evaluated 100 · Feasible 100 · Pareto 20</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Load st.</th><th>Offload st.</th><th>Pool</th>
+          <th>ρL</th><th>ρO</th><th>Wq offload</th><th>Bottleneck</th><th>Score</th><th>Pareto</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>1</td><td>2</td><td>2</td><td>12</td><td>0.25</td><td>0.25</td><td>0.0333</td><td><span class='pill'>balanced</span></td><td>-3.750</td><td>●</td></tr><tr><td>2</td><td>1</td><td>2</td><td>12</td><td>0.5</td><td>0.25</td><td>0.0333</td><td><span class='pill'>balanced</span></td><td>-3.942</td><td>●</td></tr><tr><td>3</td><td>2</td><td>3</td><td>12</td><td>0.25</td><td>0.1667</td><td>0.003</td><td><span class='pill'>balanced</span></td><td>-4.048</td><td>●</td></tr><tr><td>4</td><td>3</td><td>2</td><td>12</td><td>0.1667</td><td>0.25</td><td>0.0333</td><td><span class='pill'>balanced</span></td><td>-4.078</td><td>●</td></tr><tr><td>5</td><td>1</td><td>3</td><td>12</td><td>0.5</td><td>0.1667</td><td>0.003</td><td><span class='pill'>balanced</span></td><td>-4.239</td><td>●</td></tr><tr><td>6</td><td>2</td><td>2</td><td>16</td><td>0.25</td><td>0.25</td><td>0.0333</td><td><span class='pill'>balanced</span></td><td>-4.350</td><td></td></tr><tr><td>7</td><td>3</td><td>3</td><td>12</td><td>0.1667</td><td>0.1667</td><td>0.003</td><td><span class='pill'>balanced</span></td><td>-4.376</td><td>●</td></tr><tr><td>8</td><td>2</td><td>1</td><td>12</td><td>0.25</td><td>0.5</td><td>0.5</td><td><span class='pill'>balanced</span></td><td>-4.408</td><td>●</td></tr></tbody>
+    </table>
+  </div>
+  <canvas id="tradeoffChart" height="200"></canvas>
+</section>
+
+<section>
+  <h2>Capacity narrative</h2>
+  <pre class="narrative">MSD Ops Capacity Analysis
+========================
+Vehicles:              8
+Missions/vehicle/day:  3.0 (max feasible ≈ 12.0)
+Devices/mission:       1
+Ports/vehicle:         2 (min installed 1)
+Arrival rate:          1.0 devices/hour
+
+Loading  ρ=0.25  P(wait)=0.1  stations=2 (min 1)
+Offload  ρ=0.1667  P(wait)=0.0152  stations=3 (min 1)
+Vehicle  ρ=0.25  Port ρ=0.125
+
+Cycle time:            3.0364 h (+install 0.0 h, +sanitize 0.0 h)
+Devices required:      3.04
+Devices recommended:   8 (pool=20)
+Device reuse rate:     1.0
+Mission start delay:   0.0 h (approx)
+
+Primary constraint:    balanced
+Constraint ρ map:      devices=0.1518, loading=0.25, offload=0.1667, ports=0.125, vehicle_tempo=0.25
+
+Max vehicles (stable): 20 (limit: devices)
+Max vehicles (@ 85% ρ): 20 (limit: devices)</pre>
+</section>
+
+<section>
+  <h2>Refresh</h2>
+  <pre class="narrative">python -m analysis.generate_briefing \
+  --config fixtures/baseline.yaml \
+  --sweep fixtures/sweep_briefing.yaml \
+  -o output/briefing.html --markdown output/briefing.md</pre>
+</section>
+
+  </div>
+  <script>
+const DATA = {"constraintLabels": ["loading", "offload", "devices", "vehicle_tempo", "ports"], "constraintValues": [0.25, 0.1667, 0.1518, 0.25, 0.125], "top": [{"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 2, "offload_stations": 2, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.07, "offload_stations_min": 1, "mean_load_wait_hours": 0.0333, "loading_utilization": 0.25, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.1, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.0667, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.0333, "loading_wait_prob": 0.1, "device_reuse_rate": 1.0, "offload_utilization": 0.25, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -3.7499000000000002, "feasible": true, "pareto": true}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 1, "offload_stations": 2, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.53, "offload_stations_min": 1, "mean_load_wait_hours": 0.5, "loading_utilization": 0.5, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.1, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.5333, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.0333, "loading_wait_prob": 0.5, "device_reuse_rate": 1.0, "offload_utilization": 0.25, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -3.9416, "feasible": true, "pareto": true}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 2, "offload_stations": 3, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.04, "offload_stations_min": 1, "mean_load_wait_hours": 0.0333, "loading_utilization": 0.25, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.0152, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.0364, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.003, "loading_wait_prob": 0.1, "device_reuse_rate": 1.0, "offload_utilization": 0.1667, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -4.04765, "feasible": true, "pareto": true}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 3, "offload_stations": 2, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.04, "offload_stations_min": 1, "mean_load_wait_hours": 0.003, "loading_utilization": 0.1667, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.1, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.0364, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.0333, "loading_wait_prob": 0.0152, "device_reuse_rate": 1.0, "offload_utilization": 0.25, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -4.07795, "feasible": true, "pareto": true}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 1, "offload_stations": 3, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.5, "offload_stations_min": 1, "mean_load_wait_hours": 0.5, "loading_utilization": 0.5, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.0152, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.503, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.003, "loading_wait_prob": 0.5, "device_reuse_rate": 1.0, "offload_utilization": 0.1667, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -4.23935, "feasible": true, "pareto": true}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 2, "offload_stations": 2, "device_pool": 16, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.07, "offload_stations_min": 1, "mean_load_wait_hours": 0.0333, "loading_utilization": 0.25, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.1, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.0667, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.0333, "loading_wait_prob": 0.1, "device_reuse_rate": 1.0, "offload_utilization": 0.25, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -4.3499, "feasible": true, "pareto": false}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 3, "offload_stations": 3, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.01, "offload_stations_min": 1, "mean_load_wait_hours": 0.003, "loading_utilization": 0.1667, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.0152, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.0061, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.003, "loading_wait_prob": 0.0152, "device_reuse_rate": 1.0, "offload_utilization": 0.1667, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -4.3757, "feasible": true, "pareto": true}, {"vehicles": 8, "missions_per_vehicle_per_day": 3.0, "mission_duration_hours": 2.0, "load_time_hours": 0.5, "offload_time_hours": 0.5, "ports_per_vehicle": 2, "loading_stations": 2, "offload_stations": 1, "device_pool": 12, "operating_hours_per_day": 24.0, "utilization_target": 0.85, "device_buffer_fraction": 0.1, "high_data_volume_mode": false, "offload_factor": 0.9, "devices_per_mission": 1, "min_devices_per_vehicle": 1, "install_time_hours": 0.0, "sanitize_time_hours": 0.0, "preload_all_ports": false, "devices_required": 3.53, "offload_stations_min": 1, "mean_load_wait_hours": 0.0333, "loading_utilization": 0.25, "offload_stable": true, "vehicle_tempo_feasible": true, "offload_wait_prob": 0.5, "bottleneck": "balanced", "mission_start_delay_hours": 0.0, "ports_feasible": true, "max_missions_per_vehicle_day": 12.0, "cycle_time_hours": 3.5333, "loading_stable": true, "vehicle_utilization": 0.25, "loading_stations_min": 1, "mean_offload_wait_hours": 0.5, "loading_wait_prob": 0.1, "device_reuse_rate": 1.0, "offload_utilization": 0.5, "port_utilization": 0.125, "arrival_rate_per_hour": 1.0, "devices_recommended": 8, "score": -4.4083000000000006, "feasible": true, "pareto": true}], "utilizationTarget": 0.85};
+(function() {
+  const ctxBar = document.getElementById('constraintChart');
+  if (ctxBar && window.Chart) {
+    new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels: DATA.constraintLabels,
+        datasets: [
+          {
+            label: 'Utilization',
+            data: DATA.constraintValues,
+            backgroundColor: DATA.constraintValues.map(v =>
+              v >= 1 ? '#b33a3a' : (v >= DATA.utilizationTarget ? '#c9852a' : '#2f6f4e')),
+          },
+          {
+            label: 'Target',
+            data: DATA.constraintLabels.map(() => DATA.utilizationTarget),
+            type: 'line',
+            borderColor: '#1a1a1a',
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, suggestedMax: 1.2 } },
+      },
+    });
+  }
+  const ctxScatter = document.getElementById('tradeoffChart');
+  if (ctxScatter && window.Chart && DATA.top.length) {
+    new Chart(ctxScatter, {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Top scenarios (pool vs offload wait)',
+          data: DATA.top.map(s => ({
+            x: s.device_pool,
+            y: Number.isFinite(s.mean_offload_wait_hours) ? s.mean_offload_wait_hours : 0,
+            label: `L${s.loading_stations}/O${s.offload_stations}`,
+          })),
+          backgroundColor: '#1f4b7a',
+          pointRadius: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (c) => `${c.raw.label}: pool=${c.raw.x}, WqO=${c.raw.y}`,
+            },
+          },
+          legend: { display: false },
+        },
+        scales: {
+          x: { title: { display: true, text: 'Device pool' } },
+          y: { title: { display: true, text: 'Mean offload wait (h)' }, beginAtZero: true },
+        },
+      },
+    });
+  }
+})();
+</script>
+</body>
+</html>

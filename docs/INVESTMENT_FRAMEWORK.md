@@ -50,14 +50,17 @@ When presenting to leadership, include:
 
 ## Spreadsheet note
 
-`MSD_Investment_Analysis.xlsx` is referenced in README but not in repo. Until restored, use:
+`MSD_Investment_Analysis.xlsx` is referenced historically but not in repo. Prefer:
 
 ```bash
 ./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
 python -m analysis.sensitivity --mode missions -o output/sensitivity-missions.csv
+python -m analysis.scenario_explorer --config fixtures/sweep_briefing.yaml -o output/sweep.csv
+python -m analysis.generate_briefing --config fixtures/baseline.yaml --sweep fixtures/sweep_briefing.yaml \
+  -o docs/examples/briefing.html
 ```
 
-Phase 3 may add a checked-in CSV template or xlsx export.
+See [BRIEFING.md](BRIEFING.md) for leadership-ready HTML/Markdown.
 
 ## Worked leadership examples
 

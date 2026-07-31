@@ -14,20 +14,34 @@ The simulator deliberately uses a **strict, explicit, timer-driven state machine
 | `QUEUED_LOADING`     | Waiting in line for a loading station        | `READY` devices are periodically moved here | Loading station pulls it                  | Variable (queue length)  | Explicit queue prevents devices getting lost |
 | `LOADING`            | Being loaded with maps + threats + procedures at a loading station | Pulled from loading queue by a free station | Timer expires (`loadTime`)             | `config.loadTime`     | This represents "prep with current intel" |
 | `LOADED`             | Has valid current mission data               | Finished `LOADING`                        | Assigned to a vehicle with a free port    | Until assigned           | Only `LOADED` devices can be assigned |
-| `ASSIGNED`           | Temporarily assigned to a vehicle            | Matched to a free vehicle slot            | Immediately transitions to `INSTALLED`    | Instant (in v2)          | Kept for future animation extensibility |
-| `INSTALLED`          | Physically in one of the vehicle's 2 USB ports | Arrived at vehicle                        | Vehicle starts mission                    | Until mission starts     | Vehicle can have max 2 |
+| `ASSIGNED`           | Temporarily assigned to a vehicle            | Matched to a free vehicle slot            | Transitions to `INSTALLED` (install overhead optional in analysis) | Instant in sim; `install` hours in analysis | Analysis field: `install_time_hours` |
+| `INSTALLED`          | Physically in one of the vehicle's USB ports | Arrived at vehicle                        | Vehicle starts mission                    | Until mission starts     | Max ports = `ports_per_vehicle` (default 2); mission needs `min_devices_per_vehicle` |
 | `ON_MISSION`         | Vehicle is operating with this device        | Vehicle decides to start a mission        | Mission timer expires                     | `config.missionDuration` | Vehicle must have ≥1 device to start |
 | `MISSION_DONE`       | Mission finished, device released            | Vehicle mission timer expires             | Moved to offload queue                    | Instant                  | Device is now "dirty" with recorded data |
 | `QUEUED_OFFLOAD`     | Waiting for an offload station               | Moved from `MISSION_DONE`                 | Offload station pulls it                  | Variable                 | Second major queue in the system |
-| `OFFLOADING`         | Data being extracted + device being sanitized | Pulled by offload station                 | Timer expires (`offloadTime` or mission × factor in high-data mode) | `effectiveOffloadTicks()` | Critical bottleneck in high-tempo / video ops |
-| `SANITIZED`          | Offload + security/compliance complete       | Finished `OFFLOADING`                     | Immediately returns to `READY`            | Very short               | Cycle complete — repeatable |
+| `OFFLOADING`         | Data being extracted (+ optional sanitize occupancy) | Pulled by offload station          | Timer expires (`offloadTime` or mission × factor in high-data mode) | `effectiveOffloadTicks()`; analysis may add `sanitize_time_hours` | Critical bottleneck in high-tempo / video ops |
+| `SANITIZED`          | Offload + security/compliance complete       | Finished `OFFLOADING`                     | Immediately returns to `READY`            | Very short               | Cycle complete — feeds device reuse rate in analysis |
 
 ## Key Rules Enforced by the Simulator
 
-1. **USB Hub Limit**: A vehicle can never have more than 2 devices installed at once (`slots: [null, null]`).
-2. **Minimum to Operate**: A vehicle will only start a mission if it has at least 1 device (`hasDevices` check).
+1. **USB Hub Limit**: A vehicle can never have more devices installed than `ports_per_vehicle` (default 2; `slots: [null, null]` in the UI).
+2. **Minimum to Operate**: A vehicle will only start a mission if it has at least `min_devices_per_vehicle` devices (default 1; `hasDevices` check).
 3. **No Teleporting States**: Devices only change state when a timer expires or they are explicitly pulled by a station. Visual movement (if added later) must not affect state.
 4. **Explicit Queues**: `loadingQueue` and `offloadQueue` arrays ensure fair ordering and make bottlenecks visible in the metrics.
+
+## Analysis ↔ workflow mapping
+
+The Python capacity model (`analyze()`) now scores the full workflow, not only load/offload stations:
+
+| Analysis label | Workflow meaning |
+|----------------|------------------|
+| `loading` | `QUEUED_LOADING` / station saturation |
+| `offload` | `QUEUED_OFFLOAD` / station saturation |
+| `devices` | READY pool too small for Little's Law circulation |
+| `vehicle_tempo` | Requested `M` exceeds `H / T_m` continuous-flight ceiling |
+| `ports` | `d_min > P` or onboard port occupancy above target |
+
+See [CAPACITY_ANALYSIS.md](CAPACITY_ANALYSIS.md) and [BRIEFING.md](BRIEFING.md).
 
 ## Main Simulation Loop (in `index.html`)
 

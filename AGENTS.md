@@ -17,13 +17,16 @@ The codebase is structured to be **easy for Cursor and other AI agents to unders
 | `scripts/sync-config.py` | Regenerates `js/shared-config.js` after YAML edits |
 | `js/capacity-model.js` | Browser port of `analysis/capacity_model.py` |
 | `js/shared-config.js` | Auto-generated sim defaults from YAML |
-| `analysis/capacity_model.py` | M/M/c queue sizing and bottleneck detection (`--monte-carlo N`) |
+| `analysis/capacity_model.py` | M/M/c queue sizing and full-workflow bottleneck detection (`--monte-carlo N`) |
+| `analysis/scenario_explorer.py` | Declarative multi-parameter sweeps + preferred/Pareto ranking |
+| `analysis/generate_briefing.py` / `reporting.py` | Self-contained HTML/Markdown briefing artifacts |
 | `analysis/monte_carlo.py` | Poisson M/M/c offload wait distribution (validation) |
 | `analysis/config_loader.py` | YAML loader + tick ↔ hour conversion |
 | `analysis/sim_engine.py` | Python discrete sim (regression harness) |
 | `analysis/regression.py` | Analysis vs sim steady-state checks |
 | `analysis/sensitivity.py` | CSV sweep for investment tables |
 | `docs/CAPACITY_ANALYSIS.md` | Formula reference for the analysis module |
+| `docs/BRIEFING.md` | Briefing generation and config refresh workflow |
 | `docs/INVESTMENT_FRAMEWORK.md` | Which lever to pull when a bottleneck appears |
 | `docs/WALKTHROUGH.md` | Operator walkthrough with screenshots |
 | `docs/ROADMAP.md` | Phased program plan |
@@ -94,6 +97,9 @@ Search for `slots: [null, null]` and `vehicle.slots`. Keep configurable via YAML
 xdg-open index.html
 python scripts/sync-config.py
 python -m analysis.capacity_model --config fixtures/baseline.yaml
+python -m analysis.scenario_explorer --config fixtures/sweep_briefing.yaml
+python -m analysis.generate_briefing --config fixtures/baseline.yaml --sweep fixtures/sweep_briefing.yaml \
+  -o docs/examples/briefing.html
 ./scripts/run-tests.sh
 python -m analysis.regression
 ./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv

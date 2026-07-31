@@ -40,15 +40,35 @@
         return params.offloadTimeHours;
     }
 
+    function effectiveStationOffloadHours(params) {
+        return effectiveOffloadHours(params) + Math.max(0, params.sanitizeTimeHours || 0);
+    }
+
+    function maxMissionsPerVehicleDay(params) {
+        if (params.missionDurationHours <= 0) return Infinity;
+        return params.operatingHoursPerDay / params.missionDurationHours;
+    }
+
+    function devicePlanningFloor(params) {
+        const minDev = Math.max(1, params.minDevicesPerVehicle || 1);
+        const ports = params.portsPerVehicle || 2;
+        const perV = params.preloadAllPorts ? Math.max(minDev, ports) : minDev;
+        return Math.max(1, params.vehicles * perV);
+    }
+
     function fleetFeasible(params, vehicles, atTarget) {
         const trial = { ...params, vehicles };
         const result = analyze(trial);
         if (!result.loadingStable) return { ok: false, factor: 'loading' };
         if (!result.offloadStable) return { ok: false, factor: 'offload' };
+        if (!result.vehicleTempoFeasible) return { ok: false, factor: 'vehicle_tempo' };
+        if (!result.portsFeasible) return { ok: false, factor: 'ports' };
         if (result.devicesRecommended > params.devicePool) return { ok: false, factor: 'devices' };
         if (atTarget) {
             if (result.loadingUtilization > params.utilizationTarget) return { ok: false, factor: 'loading' };
             if (result.offloadUtilization > params.utilizationTarget) return { ok: false, factor: 'offload' };
+            if (result.vehicleUtilization > params.utilizationTarget) return { ok: false, factor: 'vehicle_tempo' };
+            if (result.portUtilization > params.utilizationTarget) return { ok: false, factor: 'ports' };
         }
         return { ok: true, factor: 'balanced' };
     }
@@ -90,10 +110,16 @@
 
     function analyze(params) {
         const notes = [];
-        const lambdaRate =
+        const devicesPerMission = Math.max(1, params.devicesPerMission || 1);
+        const minDevices = Math.max(1, params.minDevicesPerVehicle || 1);
+        const ports = params.portsPerVehicle || 2;
+        const install = Math.max(0, params.installTimeHours || 0);
+
+        const missionRate =
             (params.vehicles * params.missionsPerVehiclePerDay) / params.operatingHoursPerDay;
+        const lambdaRate = missionRate * devicesPerMission;
         const muLoad = params.loadTimeHours > 0 ? 1 / params.loadTimeHours : Infinity;
-        const offloadH = effectiveOffloadHours(params);
+        const offloadH = effectiveStationOffloadHours(params);
         const muOffload = offloadH > 0 ? 1 / offloadH : Infinity;
 
         const rhoL = params.loadingStations > 0 ? lambdaRate / (params.loadingStations * muLoad) : Infinity;
@@ -107,10 +133,10 @@
 
         const wLoad = (Number.isFinite(wqL) ? wqL : Infinity) + params.loadTimeHours;
         const wOffload = (Number.isFinite(wqO) ? wqO : Infinity) + offloadH;
-        const cycle = wLoad + params.missionDurationHours + wOffload;
+        const cycle = wLoad + install + params.missionDurationHours + wOffload;
 
         const devicesRequired = Number.isFinite(cycle) ? lambdaRate * cycle : Infinity;
-        const deviceFloor = params.vehicles;
+        const deviceFloor = devicePlanningFloor(params);
         const devicesRec = Math.max(
             deviceFloor,
             Number.isFinite(devicesRequired)
@@ -124,6 +150,40 @@
         const loadingStable = rhoL < 1;
         const offloadStable = rhoO < 1;
 
+        const maxM = maxMissionsPerVehicleDay(params);
+        const vehicleUtil = Number.isFinite(maxM) && maxM > 0
+            ? params.missionsPerVehiclePerDay / maxM
+            : Infinity;
+        const vehicleTempoFeasible = params.missionsPerVehiclePerDay <= maxM + 1e-9;
+        const portsFeasible = minDevices <= ports;
+
+        const devicesOnVehicles = missionRate * params.missionDurationHours * devicesPerMission;
+        const portSlots = params.vehicles * ports;
+        let portUtil = portSlots > 0 ? devicesOnVehicles / portSlots : Infinity;
+        if (params.preloadAllPorts) {
+            portUtil = Math.max(portUtil, minDevices / Math.max(1, ports));
+        }
+
+        let deviceReuse = 1;
+        if (Number.isFinite(devicesRequired) && devicesRequired > 0) {
+            deviceReuse = Math.min(1, params.devicePool / Math.max(devicesRequired, 1e-9));
+        } else if (!Number.isFinite(devicesRequired)) {
+            deviceReuse = 0;
+        }
+
+        let missionStartDelay = 0;
+        if (params.devicePool < devicesRec && lambdaRate > 0 && Number.isFinite(devicesRequired)) {
+            missionStartDelay = (devicesRec - params.devicePool) / lambdaRate;
+        }
+
+        const constraintUtils = {
+            loading: Number.isFinite(rhoL) ? rhoL : Infinity,
+            offload: Number.isFinite(rhoO) ? rhoO : Infinity,
+            devices: params.devicePool > 0 ? devicesRequired / params.devicePool : Infinity,
+            vehicle_tempo: Number.isFinite(vehicleUtil) ? vehicleUtil : Infinity,
+            ports: Number.isFinite(portUtil) ? portUtil : Infinity,
+        };
+
         let bottleneck = 'balanced';
         if (!loadingStable) {
             bottleneck = 'loading';
@@ -131,17 +191,25 @@
         } else if (!offloadStable) {
             bottleneck = 'offload';
             notes.push('offload queue unstable (rho >= 1)');
+        } else if (!vehicleTempoFeasible) {
+            bottleneck = 'vehicle_tempo';
+            notes.push('missions/vehicle/day exceeds tempo ceiling H/T_m');
+        } else if (!portsFeasible) {
+            bottleneck = 'ports';
+            notes.push('min devices per vehicle exceeds available ports');
         } else if (devicesRec > params.devicePool) {
             bottleneck = 'devices';
             notes.push(`pool ${params.devicePool} < recommended ${devicesRec}`);
         } else {
-            const util = {
-                loading: rhoL / params.utilizationTarget,
-                offload: rhoO / params.utilizationTarget,
-            };
-            if (util.loading > 1 || util.offload > 1) {
-                bottleneck = util.loading >= util.offload ? 'loading' : 'offload';
-            }
+            const scored = {};
+            Object.keys(constraintUtils).forEach((k) => {
+                scored[k] = constraintUtils[k] / params.utilizationTarget;
+            });
+            let worst = 'loading';
+            Object.keys(scored).forEach((k) => {
+                if (scored[k] > scored[worst]) worst = k;
+            });
+            if (scored[worst] > 1) bottleneck = worst;
         }
 
         return {
@@ -159,6 +227,16 @@
             bottleneck,
             loadingStable,
             offloadStable,
+            vehicleUtilization: round(vehicleUtil, 4),
+            portUtilization: round(portUtil, 4),
+            maxMissionsPerVehicleDay: round(maxM, 4),
+            deviceReuseRate: round(deviceReuse, 4),
+            missionStartDelayHours: round(missionStartDelay, 4),
+            vehicleTempoFeasible,
+            portsFeasible,
+            constraintUtilizations: Object.fromEntries(
+                Object.entries(constraintUtils).map(([k, v]) => [k, round(v, 4)])
+            ),
             notes,
         };
     }
@@ -173,7 +251,12 @@
             missionDurationHours: config.missionDuration / tph,
             loadTimeHours: config.loadTime / tph,
             offloadTimeHours: config.offloadTime / tph,
+            installTimeHours: (shared.durationsHours && shared.durationsHours.install) || 0,
+            sanitizeTimeHours: (shared.durationsHours && shared.durationsHours.sanitize) || 0,
             portsPerVehicle: shared.portsPerVehicle || 2,
+            devicesPerMission: shared.devicesPerMission || 1,
+            minDevicesPerVehicle: shared.minDevicesPerVehicle || 1,
+            preloadAllPorts: !!shared.preloadAllPorts,
             loadingStations: config.numLoadingStations,
             offloadStations: config.numOffloadStations,
             devicePool: config.totalDevices,

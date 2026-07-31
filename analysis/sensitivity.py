@@ -8,7 +8,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from analysis.capacity_model import OpsParameters, analyze
+from analysis.capacity_model import OpsParameters, analyze, replace_params
 from analysis.config_loader import load_shared_config, to_ops_parameters
 
 
@@ -23,9 +23,13 @@ CSV_COLUMNS = [
     "loading_stations",
     "offload_stations",
     "device_pool",
+    "devices_per_mission",
+    "ports_per_vehicle",
     "arrival_rate_per_hour",
     "loading_utilization",
     "offload_utilization",
+    "vehicle_utilization",
+    "port_utilization",
     "devices_recommended",
     "loading_stations_min",
     "offload_stations_min",
@@ -53,21 +57,12 @@ def iter_sensitivity_rows(
         for offload in offload_range:
             for loading in loading_range:
                 for pool in pool_range:
-                    params = OpsParameters(
-                        vehicles=base.vehicles,
+                    params = replace_params(
+                        base,
                         missions_per_vehicle_per_day=missions,
-                        mission_duration_hours=base.mission_duration_hours,
-                        load_time_hours=base.load_time_hours,
-                        offload_time_hours=base.offload_time_hours,
-                        ports_per_vehicle=base.ports_per_vehicle,
                         loading_stations=loading,
                         offload_stations=offload,
                         device_pool=pool,
-                        operating_hours_per_day=base.operating_hours_per_day,
-                        utilization_target=base.utilization_target,
-                        device_buffer_fraction=base.device_buffer_fraction,
-                        high_data_volume_mode=base.high_data_volume_mode,
-                        offload_factor=base.offload_factor,
                     )
                     result = analyze(params)
                     rows.append(
@@ -82,9 +77,13 @@ def iter_sensitivity_rows(
                             "loading_stations": params.loading_stations,
                             "offload_stations": params.offload_stations,
                             "device_pool": params.device_pool,
+                            "devices_per_mission": params.devices_per_mission,
+                            "ports_per_vehicle": params.ports_per_vehicle,
                             "arrival_rate_per_hour": result.arrival_rate_per_hour,
                             "loading_utilization": result.loading_utilization,
                             "offload_utilization": result.offload_utilization,
+                            "vehicle_utilization": result.vehicle_utilization,
+                            "port_utilization": result.port_utilization,
                             "devices_recommended": result.devices_recommended,
                             "loading_stations_min": result.loading_stations_min,
                             "offload_stations_min": result.offload_stations_min,
@@ -109,19 +108,11 @@ def iter_offload_time_sensitivity(
     rows: list[dict] = []
     for stations in offload_station_range:
         for pct in offload_pct_values:
-            params = OpsParameters(
-                vehicles=base.vehicles,
-                missions_per_vehicle_per_day=base.missions_per_vehicle_per_day,
-                mission_duration_hours=base.mission_duration_hours,
-                load_time_hours=base.load_time_hours,
+            params = replace_params(
+                base,
                 offload_time_hours=base.mission_duration_hours * pct,
-                ports_per_vehicle=base.ports_per_vehicle,
-                loading_stations=base.loading_stations,
                 offload_stations=stations,
-                device_pool=base.device_pool,
-                operating_hours_per_day=base.operating_hours_per_day,
-                utilization_target=base.utilization_target,
-                device_buffer_fraction=base.device_buffer_fraction,
+                high_data_volume_mode=False,
             )
             result = analyze(params)
             rows.append(

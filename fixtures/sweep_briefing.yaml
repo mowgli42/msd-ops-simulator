@@ -1,0 +1,52 @@
+# Example multi-parameter sweep for scenario_explorer / briefing generation.
+# Edit ranges freely — any OpsParameters field name is valid.
+
+scenario_id: briefing_station_tradeoff
+description: >
+  Explore loading/offload station counts and device pool size around the
+  baseline fleet. Prefer stable, below-target utilization with lean capital.
+
+base_config: fixtures/baseline.yaml
+
+method: grid  # grid | lhs
+
+parameters:
+  loading_stations:
+    min: 1
+    max: 4
+    step: 1
+  offload_stations:
+    min: 1
+    max: 5
+    step: 1
+  device_pool:
+    values: [12, 16, 20, 24, 32]
+
+constraints:
+  loading_stable: true
+  offload_stable: true
+  vehicle_tempo_feasible: true
+  ports_feasible: true
+  loading_utilization:
+    max: 0.85
+  offload_utilization:
+    max: 0.85
+
+# Weighted utility (positive weight = prefer higher; negative = prefer lower)
+ranking:
+  weights:
+    mean_offload_wait_hours: -2.0
+    mean_load_wait_hours: -1.0
+    loading_utilization: -0.5
+    offload_utilization: -0.5
+    loading_stations: -0.4
+    offload_stations: -0.4
+    device_pool: -0.15
+  pareto_objectives:
+    - device_pool
+    - offload_stations
+    - mean_offload_wait_hours
+  top_n: 8
+
+lhs_samples: 64
+seed: 42
