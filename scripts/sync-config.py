@@ -32,6 +32,9 @@ def main() -> int:
         "utilizationTarget": cfg.utilization_target,
         "deviceBufferFraction": cfg.device_buffer_fraction,
         "portsPerVehicle": cfg.ports_per_vehicle,
+        "devicesPerMission": cfg.devices_per_mission,
+        "minDevicesPerVehicle": cfg.min_devices_per_vehicle,
+        "preloadAllPorts": cfg.preload_all_ports,
         "modes": {
             "highDataVolume": cfg.high_data_volume_mode,
             "offloadFactor": cfg.offload_factor,
@@ -52,6 +55,8 @@ def main() -> int:
             "mission": cfg.mission_duration_hours,
             "load": cfg.load_time_hours,
             "offload": cfg.offload_time_hours,
+            "install": cfg.install_time_hours,
+            "sanitize": cfg.sanitize_time_hours,
         },
     }
 

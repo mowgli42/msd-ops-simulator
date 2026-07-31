@@ -1,0 +1,48 @@
+# Sweep tuned for the stress_offload scenario — find lean fixes.
+scenario_id: stress_offload_tradeoff
+description: >
+  High-tempo offload stress. Prefer combinations that restore stability
+  under 85% utilization with minimal added stations/devices.
+
+base_config: fixtures/stress_offload.yaml
+
+method: grid
+
+parameters:
+  loading_stations:
+    min: 2
+    max: 5
+    step: 1
+  offload_stations:
+    min: 2
+    max: 6
+    step: 1
+  device_pool:
+    values: [24, 32, 40, 48]
+
+constraints:
+  loading_stable: true
+  offload_stable: true
+  vehicle_tempo_feasible: true
+  ports_feasible: true
+  loading_utilization:
+    max: 0.85
+  offload_utilization:
+    max: 0.85
+
+ranking:
+  weights:
+    mean_offload_wait_hours: -2.0
+    mean_load_wait_hours: -1.0
+    loading_utilization: -0.5
+    offload_utilization: -0.5
+    loading_stations: -0.5
+    offload_stations: -0.6
+    device_pool: -0.12
+  pareto_objectives:
+    - device_pool
+    - offload_stations
+    - mean_offload_wait_hours
+  top_n: 8
+
+seed: 7

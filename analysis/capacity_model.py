@@ -8,11 +8,19 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, replace
 
 
 @dataclass(frozen=True)
 class OpsParameters:
+    """Operational scenario inputs.
+
+    Core station/pool fields are stable. Workflow fields
+    (devices_per_mission, install/sanitize times, port preload) extend
+    end-to-end constraint detection without changing call sites that use
+    ``replace_params`` / ``asdict`` overrides.
+    """
+
     vehicles: int = 8
     missions_per_vehicle_per_day: float = 3.0
     mission_duration_hours: float = 2.0
@@ -27,6 +35,12 @@ class OpsParameters:
     device_buffer_fraction: float = 0.10
     high_data_volume_mode: bool = False
     offload_factor: float = 0.9
+    # Full-workflow extensions
+    devices_per_mission: int = 1
+    min_devices_per_vehicle: int = 1
+    install_time_hours: float = 0.0
+    sanitize_time_hours: float = 0.0
+    preload_all_ports: bool = False
 
     @property
     def process_time_hours(self) -> float:
@@ -37,6 +51,41 @@ class OpsParameters:
         if self.high_data_volume_mode:
             return self.mission_duration_hours * self.offload_factor
         return self.offload_time_hours
+
+    def effective_station_offload_hours(self) -> float:
+        """Offload station occupancy = extract + sanitize."""
+        return self.effective_offload_hours() + max(0.0, self.sanitize_time_hours)
+
+    def max_missions_per_vehicle_day(self) -> float:
+        """Physical tempo ceiling if a vehicle flew continuously."""
+        if self.mission_duration_hours <= 0:
+            return math.inf
+        return self.operating_hours_per_day / self.mission_duration_hours
+
+    def device_planning_floor(self) -> int:
+        """Minimum pool to keep the fleet mission-capable."""
+        if self.preload_all_ports:
+            per_v = max(self.min_devices_per_vehicle, self.ports_per_vehicle)
+        else:
+            per_v = max(1, self.min_devices_per_vehicle)
+        return max(1, self.vehicles * per_v)
+
+
+KNOWN_PARAM_NAMES = frozenset(f.name for f in fields(OpsParameters))
+
+
+def replace_params(params: OpsParameters, **overrides: object) -> OpsParameters:
+    """Return a copy with overrides; unknown keys raise ``TypeError``."""
+    unknown = set(overrides) - KNOWN_PARAM_NAMES
+    if unknown:
+        raise TypeError(f"Unknown OpsParameters fields: {sorted(unknown)}")
+    return replace(params, **overrides)
+
+
+def params_from_mapping(data: dict) -> OpsParameters:
+    """Build OpsParameters from a flat dict (ignores unknown keys)."""
+    filtered = {k: v for k, v in data.items() if k in KNOWN_PARAM_NAMES}
+    return OpsParameters(**filtered)
 
 
 @dataclass(frozen=True)
@@ -66,6 +115,15 @@ class CapacityResult:
     loading_stable: bool
     offload_stable: bool
     notes: list[str]
+    # Full-workflow metrics
+    vehicle_utilization: float = 0.0
+    port_utilization: float = 0.0
+    max_missions_per_vehicle_day: float = 0.0
+    device_reuse_rate: float = 1.0
+    mission_start_delay_hours: float = 0.0
+    vehicle_tempo_feasible: bool = True
+    ports_feasible: bool = True
+    constraint_utilizations: dict[str, float] | None = None
 
 
 def erlang_c(lambda_rate: float, mu: float, servers: int) -> float:
@@ -105,12 +163,29 @@ def stations_required(lambda_rate: float, mu: float, utilization_target: float) 
 
 def _fleet_feasible(params: OpsParameters, vehicles: int, *, at_target: bool) -> tuple[bool, str]:
     """Return whether `vehicles` is supportable and which constraint binds next."""
-    trial = OpsParameters(**{**asdict(params), "vehicles": vehicles})
+    trial = replace_params(params, vehicles=vehicles)
     result = analyze(trial)
+    hard = ("loading", "offload", "devices", "vehicle_tempo", "ports")
+    if result.bottleneck in hard and result.bottleneck != "balanced":
+        # Unstable / infeasible labels always bind
+        if not result.loading_stable:
+            return False, "loading"
+        if not result.offload_stable:
+            return False, "offload"
+        if not result.vehicle_tempo_feasible:
+            return False, "vehicle_tempo"
+        if not result.ports_feasible:
+            return False, "ports"
+        if result.devices_recommended > params.device_pool:
+            return False, "devices"
     if not result.loading_stable:
         return False, "loading"
     if not result.offload_stable:
         return False, "offload"
+    if not result.vehicle_tempo_feasible:
+        return False, "vehicle_tempo"
+    if not result.ports_feasible:
+        return False, "ports"
     if result.devices_recommended > params.device_pool:
         return False, "devices"
     if at_target:
@@ -118,6 +193,10 @@ def _fleet_feasible(params: OpsParameters, vehicles: int, *, at_target: bool) ->
             return False, "loading"
         if result.offload_utilization > params.utilization_target:
             return False, "offload"
+        if result.vehicle_utilization > params.utilization_target:
+            return False, "vehicle_tempo"
+        if result.port_utilization > params.utilization_target:
+            return False, "ports"
     return True, "balanced"
 
 
@@ -158,12 +237,22 @@ def analyze(params: OpsParameters) -> CapacityResult:
         notes.append("vehicles must be >= 1")
     if params.missions_per_vehicle_per_day < 0:
         notes.append("missions_per_vehicle_per_day must be >= 0")
+    if params.devices_per_mission < 1:
+        notes.append("devices_per_mission must be >= 1")
+    if params.min_devices_per_vehicle < 1:
+        notes.append("min_devices_per_vehicle must be >= 1")
+    if params.min_devices_per_vehicle > params.ports_per_vehicle:
+        notes.append(
+            f"min_devices_per_vehicle ({params.min_devices_per_vehicle}) exceeds "
+            f"ports_per_vehicle ({params.ports_per_vehicle})"
+        )
 
-    lambda_rate = (
-        params.vehicles * params.missions_per_vehicle_per_day / params.operating_hours_per_day
-    )
+    # Device arrivals through load/offload stations
+    mission_rate = params.vehicles * params.missions_per_vehicle_per_day / params.operating_hours_per_day
+    lambda_rate = mission_rate * max(1, params.devices_per_mission)
+
     mu_load = 1.0 / params.load_time_hours if params.load_time_hours > 0 else math.inf
-    offload_h = params.effective_offload_hours()
+    offload_h = params.effective_station_offload_hours()
     mu_offload = 1.0 / offload_h if offload_h > 0 else math.inf
 
     rho_l = lambda_rate / (params.loading_stations * mu_load) if params.loading_stations > 0 else math.inf
@@ -177,10 +266,11 @@ def analyze(params: OpsParameters) -> CapacityResult:
 
     w_load = (wq_l if math.isfinite(wq_l) else math.inf) + params.load_time_hours
     w_offload = (wq_o if math.isfinite(wq_o) else math.inf) + offload_h
-    cycle = w_load + params.mission_duration_hours + w_offload
+    install = max(0.0, params.install_time_hours)
+    cycle = w_load + install + params.mission_duration_hours + w_offload
 
     devices_required = lambda_rate * cycle if math.isfinite(cycle) else math.inf
-    device_floor = params.vehicles  # at least one device per vehicle to operate
+    device_floor = params.device_planning_floor()
     devices_rec = max(
         device_floor,
         math.ceil(devices_required * (1.0 + params.device_buffer_fraction))
@@ -194,6 +284,43 @@ def analyze(params: OpsParameters) -> CapacityResult:
     loading_stable = rho_l < 1.0
     offload_stable = rho_o < 1.0
 
+    # Vehicle tempo: requested missions vs continuous-flight ceiling
+    max_m = params.max_missions_per_vehicle_day()
+    vehicle_util = (
+        params.missions_per_vehicle_per_day / max_m if math.isfinite(max_m) and max_m > 0 else math.inf
+    )
+    vehicle_tempo_feasible = params.missions_per_vehicle_per_day <= max_m + 1e-9
+
+    # Port / onboard device constraint (Little's Law on mission phase)
+    ports_feasible = params.min_devices_per_vehicle <= params.ports_per_vehicle
+    devices_on_vehicles = mission_rate * params.mission_duration_hours * max(1, params.devices_per_mission)
+    port_slots = params.vehicles * params.ports_per_vehicle
+    port_util = devices_on_vehicles / port_slots if port_slots > 0 else math.inf
+    if params.preload_all_ports:
+        # Planning intent: fill all ports before launch → higher peak demand signal
+        port_util = max(port_util, params.min_devices_per_vehicle / max(1, params.ports_per_vehicle))
+
+    # Device reuse / feedback: fraction of recommended circulation the pool can sustain
+    if math.isfinite(devices_required) and devices_required > 0:
+        device_reuse = min(1.0, params.device_pool / max(devices_required, 1e-9))
+    else:
+        device_reuse = 0.0 if not math.isfinite(devices_required) else 1.0
+
+    # Approximate mission-start delay when pool is short (devices stuck in cycle)
+    if params.device_pool < devices_rec and lambda_rate > 0 and math.isfinite(devices_required):
+        shortfall = devices_rec - params.device_pool
+        mission_start_delay = shortfall / lambda_rate
+    else:
+        mission_start_delay = 0.0
+
+    constraint_utils = {
+        "loading": rho_l if math.isfinite(rho_l) else math.inf,
+        "offload": rho_o if math.isfinite(rho_o) else math.inf,
+        "devices": (devices_required / params.device_pool) if params.device_pool > 0 else math.inf,
+        "vehicle_tempo": vehicle_util if math.isfinite(vehicle_util) else math.inf,
+        "ports": port_util if math.isfinite(port_util) else math.inf,
+    }
+
     bottleneck = "balanced"
     if not loading_stable:
         bottleneck = "loading"
@@ -201,28 +328,54 @@ def analyze(params: OpsParameters) -> CapacityResult:
     elif not offload_stable:
         bottleneck = "offload"
         notes.append("offload queue unstable (rho >= 1)")
+    elif not vehicle_tempo_feasible:
+        bottleneck = "vehicle_tempo"
+        notes.append(
+            f"missions/vehicle/day {params.missions_per_vehicle_per_day} exceeds "
+            f"tempo ceiling {max_m:.2f} (= H / T_m)"
+        )
+    elif not ports_feasible:
+        bottleneck = "ports"
+        notes.append("min devices per vehicle exceeds available ports")
     elif devices_rec > params.device_pool:
         bottleneck = "devices"
         notes.append(f"pool {params.device_pool} < recommended {devices_rec}")
     else:
-        util = {
-            "loading": rho_l / params.utilization_target if params.utilization_target else rho_l,
-            "offload": rho_o / params.utilization_target if params.utilization_target else rho_o,
+        # Soft pressure: highest utilization vs target among workflow resources
+        scored = {
+            k: (v / params.utilization_target if params.utilization_target else v)
+            for k, v in constraint_utils.items()
         }
-        worst = max(util, key=util.get)
-        if util[worst] > 1.0:
+        worst = max(scored, key=scored.get)
+        if scored[worst] > 1.0:
             bottleneck = worst
+            if worst == "devices":
+                notes.append("device pool utilization above target")
+            elif worst == "vehicle_tempo":
+                notes.append("vehicle mission tempo above utilization target")
+            elif worst == "ports":
+                notes.append("onboard port occupancy above utilization target")
+
+    if install > 0:
+        notes.append(f"install overhead included in cycle ({install} h)")
+    if params.sanitize_time_hours > 0:
+        notes.append(f"sanitize added to offload station time (+{params.sanitize_time_hours} h)")
+    if params.devices_per_mission > 1:
+        notes.append(f"λ scaled by devices_per_mission={params.devices_per_mission}")
+
+    def _r(x: float, n: int = 4) -> float:
+        return round(x, n) if math.isfinite(x) else math.inf
 
     return CapacityResult(
-        arrival_rate_per_hour=round(lambda_rate, 4),
-        service_rate_per_station=round(mu_offload, 4),
-        loading_utilization=round(rho_l, 4),
-        offload_utilization=round(rho_o, 4),
-        loading_wait_prob=round(pw_l, 4),
-        offload_wait_prob=round(pw_o, 4),
-        mean_load_wait_hours=round(wq_l, 4) if math.isfinite(wq_l) else math.inf,
-        mean_offload_wait_hours=round(wq_o, 4) if math.isfinite(wq_o) else math.inf,
-        cycle_time_hours=round(cycle, 4) if math.isfinite(cycle) else math.inf,
+        arrival_rate_per_hour=_r(lambda_rate),
+        service_rate_per_station=_r(mu_offload),
+        loading_utilization=_r(rho_l),
+        offload_utilization=_r(rho_o),
+        loading_wait_prob=_r(pw_l),
+        offload_wait_prob=_r(pw_o),
+        mean_load_wait_hours=_r(wq_l) if math.isfinite(wq_l) else math.inf,
+        mean_offload_wait_hours=_r(wq_o) if math.isfinite(wq_o) else math.inf,
+        cycle_time_hours=_r(cycle) if math.isfinite(cycle) else math.inf,
         devices_required=round(devices_required, 2) if math.isfinite(devices_required) else math.inf,
         devices_recommended=devices_rec,
         loading_stations_min=s_l_min,
@@ -231,28 +384,48 @@ def analyze(params: OpsParameters) -> CapacityResult:
         loading_stable=loading_stable,
         offload_stable=offload_stable,
         notes=notes,
+        vehicle_utilization=_r(vehicle_util) if math.isfinite(vehicle_util) else math.inf,
+        port_utilization=_r(port_util) if math.isfinite(port_util) else math.inf,
+        max_missions_per_vehicle_day=_r(max_m, 4) if math.isfinite(max_m) else math.inf,
+        device_reuse_rate=_r(device_reuse),
+        mission_start_delay_hours=_r(mission_start_delay),
+        vehicle_tempo_feasible=vehicle_tempo_feasible,
+        ports_feasible=ports_feasible,
+        constraint_utilizations={k: _r(v) if math.isfinite(v) else math.inf for k, v in constraint_utils.items()},
     )
 
 
 def format_summary(params: OpsParameters, result: CapacityResult) -> str:
     fleet = max_sustainable_vehicles(params)
+    cu = result.constraint_utilizations or {}
     lines = [
         "MSD Ops Capacity Analysis",
         "========================",
         f"Vehicles:              {params.vehicles}",
-        f"Missions/vehicle/day:  {params.missions_per_vehicle_per_day}",
+        f"Missions/vehicle/day:  {params.missions_per_vehicle_per_day} "
+        f"(max feasible ≈ {result.max_missions_per_vehicle_day})",
+        f"Devices/mission:       {params.devices_per_mission}",
+        f"Ports/vehicle:         {params.ports_per_vehicle} "
+        f"(min installed {params.min_devices_per_vehicle}"
+        f"{'; preload all' if params.preload_all_ports else ''})",
         f"Arrival rate:          {result.arrival_rate_per_hour} devices/hour",
         "",
         f"Loading  ρ={result.loading_utilization}  P(wait)={result.loading_wait_prob}  "
         f"stations={params.loading_stations} (min {result.loading_stations_min})",
         f"Offload  ρ={result.offload_utilization}  P(wait)={result.offload_wait_prob}  "
         f"stations={params.offload_stations} (min {result.offload_stations_min})",
+        f"Vehicle  ρ={result.vehicle_utilization}  Port ρ={result.port_utilization}",
         "",
-        f"Cycle time:            {result.cycle_time_hours} h",
+        f"Cycle time:            {result.cycle_time_hours} h "
+        f"(+install {params.install_time_hours} h, +sanitize {params.sanitize_time_hours} h)",
         f"Devices required:      {result.devices_required}",
         f"Devices recommended:   {result.devices_recommended} (pool={params.device_pool})",
+        f"Device reuse rate:     {result.device_reuse_rate}",
+        f"Mission start delay:   {result.mission_start_delay_hours} h (approx)",
         "",
-        f"Bottleneck:            {result.bottleneck}",
+        f"Primary constraint:    {result.bottleneck}",
+        f"Constraint ρ map:      "
+        + ", ".join(f"{k}={v}" for k, v in sorted(cu.items())),
         "",
         f"Max vehicles (stable): {fleet.max_vehicles_stable} (limit: {fleet.limiting_factor_stable})",
         f"Max vehicles (@ {params.utilization_target:.0%} ρ): {fleet.max_vehicles_at_target} "
@@ -282,6 +455,12 @@ def main() -> int:
     parser.add_argument("--load-hours", type=float, default=None, help="Load time (maps/threats)")
     parser.add_argument("--offload-hours", type=float, default=None, help="Offload + sanitize time")
     parser.add_argument("--process-hours", type=float, default=None, help="Alias for --load-hours")
+    parser.add_argument("--install-hours", type=float, default=None)
+    parser.add_argument("--sanitize-hours", type=float, default=None)
+    parser.add_argument("--devices-per-mission", type=int, default=None)
+    parser.add_argument("--min-devices-per-vehicle", type=int, default=None)
+    parser.add_argument("--ports-per-vehicle", type=int, default=None)
+    parser.add_argument("--preload-all-ports", action="store_true")
     parser.add_argument("--high-data-volume", action="store_true", help="Offload = mission × factor")
     parser.add_argument("--offload-factor", type=float, default=None)
     parser.add_argument("--loading-stations", type=int, default=None)
@@ -307,14 +486,20 @@ def main() -> int:
             "mission_duration_hours": args.mission_hours,
             "load_time_hours": args.load_hours if args.load_hours is not None else args.process_hours,
             "offload_time_hours": args.offload_hours,
+            "install_time_hours": args.install_hours,
+            "sanitize_time_hours": args.sanitize_hours,
+            "devices_per_mission": args.devices_per_mission,
+            "min_devices_per_vehicle": args.min_devices_per_vehicle,
+            "ports_per_vehicle": args.ports_per_vehicle,
             "loading_stations": args.loading_stations,
             "offload_stations": args.offload_stations,
             "device_pool": args.device_pool,
             "high_data_volume_mode": True if args.high_data_volume else None,
             "offload_factor": args.offload_factor,
+            "preload_all_ports": True if args.preload_all_ports else None,
         }
-        params = OpsParameters(
-            **{k: v for k, v in {**asdict(params), **{k: o for k, o in overrides.items() if o is not None}}.items()}
+        params = replace_params(
+            params, **{k: o for k, o in overrides.items() if o is not None}
         )
     else:
         params = OpsParameters(
@@ -327,11 +512,19 @@ def main() -> int:
                 else (args.process_hours if args.process_hours is not None else 0.5)
             ),
             offload_time_hours=args.offload_hours if args.offload_hours is not None else 0.5,
+            install_time_hours=args.install_hours if args.install_hours is not None else 0.0,
+            sanitize_time_hours=args.sanitize_hours if args.sanitize_hours is not None else 0.0,
+            devices_per_mission=args.devices_per_mission if args.devices_per_mission is not None else 1,
+            min_devices_per_vehicle=(
+                args.min_devices_per_vehicle if args.min_devices_per_vehicle is not None else 1
+            ),
+            ports_per_vehicle=args.ports_per_vehicle if args.ports_per_vehicle is not None else 2,
             loading_stations=args.loading_stations if args.loading_stations is not None else 2,
             offload_stations=args.offload_stations if args.offload_stations is not None else 3,
             device_pool=args.device_pool if args.device_pool is not None else 20,
             high_data_volume_mode=args.high_data_volume,
             offload_factor=args.offload_factor if args.offload_factor is not None else 0.9,
+            preload_all_ports=args.preload_all_ports,
         )
     result = analyze(params)
 
@@ -346,6 +539,10 @@ def main() -> int:
         print(json.dumps(payload, indent=2))
     elif args.format == "csv":
         row = {**asdict(params), **{f"result_{k}": v for k, v in asdict(result).items() if k != "notes"}}
+        # Flatten constraint map for CSV
+        cu = row.pop("result_constraint_utilizations", None) or {}
+        for k, v in cu.items():
+            row[f"result_cu_{k}"] = v
         print(",".join(str(row[k]) for k in row))
     else:
         print(format_summary(params, result))

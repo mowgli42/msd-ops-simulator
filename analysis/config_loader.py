@@ -28,6 +28,11 @@ class SharedConfig:
     offload_factor: float
     utilization_target: float
     device_buffer_fraction: float
+    devices_per_mission: int = 1
+    min_devices_per_vehicle: int = 1
+    install_time_hours: float = 0.0
+    sanitize_time_hours: float = 0.0
+    preload_all_ports: bool = False
 
     @property
     def process_time_hours(self) -> float:
@@ -48,6 +53,18 @@ class SharedConfig:
     @property
     def offload_time_ticks(self) -> int:
         return hours_to_ticks(self.offload_time_hours, self.ticks_per_hour)
+
+    @property
+    def install_time_ticks(self) -> int:
+        if self.install_time_hours <= 0:
+            return 0
+        return hours_to_ticks(self.install_time_hours, self.ticks_per_hour)
+
+    @property
+    def sanitize_time_ticks(self) -> int:
+        if self.sanitize_time_hours <= 0:
+            return 0
+        return hours_to_ticks(self.sanitize_time_hours, self.ticks_per_hour)
 
     def effective_offload_ticks(self) -> int:
         if self.high_data_volume_mode:
@@ -86,9 +103,14 @@ def load_shared_config(path: str | Path) -> SharedConfig:
         device_pool=int(ops.get("device_pool", 20)),
         loading_stations=int(ops.get("loading_stations", 2)),
         offload_stations=int(ops.get("offload_stations", 3)),
+        devices_per_mission=int(ops.get("devices_per_mission", 1)),
+        min_devices_per_vehicle=int(ops.get("min_devices_per_vehicle", 1)),
+        preload_all_ports=bool(ops.get("preload_all_ports", False)),
         mission_duration_hours=float(durations.get("mission", 2.0)),
         load_time_hours=load_h,
         offload_time_hours=offload_h,
+        install_time_hours=float(durations.get("install", 0.0)),
+        sanitize_time_hours=float(durations.get("sanitize", 0.0)),
         high_data_volume_mode=bool(modes.get("high_data_volume", False)),
         offload_factor=float(modes.get("offload_factor", 0.9)),
         utilization_target=float(analysis.get("utilization_target", 0.85)),
@@ -112,6 +134,11 @@ def to_ops_parameters(cfg: SharedConfig) -> OpsParameters:
         device_buffer_fraction=cfg.device_buffer_fraction,
         high_data_volume_mode=cfg.high_data_volume_mode,
         offload_factor=cfg.offload_factor,
+        devices_per_mission=cfg.devices_per_mission,
+        min_devices_per_vehicle=cfg.min_devices_per_vehicle,
+        install_time_hours=cfg.install_time_hours,
+        sanitize_time_hours=cfg.sanitize_time_hours,
+        preload_all_ports=cfg.preload_all_ports,
     )
 
 
@@ -132,6 +159,11 @@ def ops_from_sim_sliders(
     ports_per_vehicle: int = 2,
     high_data_volume_mode: bool = False,
     offload_factor: float = 0.9,
+    devices_per_mission: int = 1,
+    min_devices_per_vehicle: int = 1,
+    install_ticks: int = 0,
+    sanitize_ticks: int = 0,
+    preload_all_ports: bool = False,
 ) -> OpsParameters:
     offload_hours = ticks_to_hours(offload_ticks, ticks_per_hour)
     if high_data_volume_mode:
@@ -151,4 +183,9 @@ def ops_from_sim_sliders(
         device_buffer_fraction=device_buffer_fraction,
         high_data_volume_mode=high_data_volume_mode,
         offload_factor=offload_factor,
+        devices_per_mission=devices_per_mission,
+        min_devices_per_vehicle=min_devices_per_vehicle,
+        install_time_hours=ticks_to_hours(install_ticks, ticks_per_hour) if install_ticks else 0.0,
+        sanitize_time_hours=ticks_to_hours(sanitize_ticks, ticks_per_hour) if sanitize_ticks else 0.0,
+        preload_all_ports=preload_all_ports,
     )

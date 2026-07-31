@@ -6,6 +6,9 @@ window.MSD_SHARED_CONFIG = {
   "utilizationTarget": 0.85,
   "deviceBufferFraction": 0.1,
   "portsPerVehicle": 2,
+  "devicesPerMission": 1,
+  "minDevicesPerVehicle": 1,
+  "preloadAllPorts": false,
   "modes": {
     "highDataVolume": false,
     "offloadFactor": 0.9
@@ -25,6 +28,8 @@ window.MSD_SHARED_CONFIG = {
   "durationsHours": {
     "mission": 2.0,
     "load": 0.5,
-    "offload": 0.5
+    "offload": 0.5,
+    "install": 0.0,
+    "sanitize": 0.0
   }
 };

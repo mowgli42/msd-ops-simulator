@@ -65,9 +65,25 @@ python -m analysis.capacity_model --config fixtures/baseline.yaml
 python -m analysis.capacity_model --config fixtures/baseline.yaml --monte-carlo 200
 python -m analysis.regression
 ./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
+python -m analysis.scenario_explorer --config fixtures/sweep_briefing.yaml -o output/sweep.csv
+python -m analysis.generate_briefing --config fixtures/baseline.yaml --sweep fixtures/sweep_briefing.yaml \
+  -o docs/examples/briefing.html --markdown docs/examples/briefing.md
 ```
 
 Refresh screenshots: `python scripts/capture-screenshots.py` (requires Playwright).
+
+## Briefings
+
+Self-contained HTML/Markdown for technical discussions:
+
+```bash
+python -m analysis.generate_briefing \
+  --config fixtures/baseline.yaml \
+  --sweep fixtures/sweep_briefing.yaml \
+  -o docs/examples/briefing.html
+```
+
+Edit `fixtures/baseline.yaml` or `fixtures/sweep_briefing.yaml` to change configuration options, then regenerate. Details: [docs/BRIEFING.md](docs/BRIEFING.md). Example pack: [docs/examples/briefing.html](docs/examples/briefing.html).
 
 ## Repository map
 
@@ -75,11 +91,16 @@ Refresh screenshots: `python scripts/capture-screenshots.py` (requires Playwrigh
 |------|---------|
 | `index.html` | Interactive simulator + analysis banner |
 | `fixtures/baseline.yaml` | Shared scenario (20 ticks = 1 hour) |
-| `analysis/capacity_model.py` | M/M/c sizing CLI (`--monte-carlo N` for Poisson validation) |
+| `fixtures/sweep_briefing.yaml` | Multi-parameter sweep + ranking for briefings |
+| `analysis/capacity_model.py` | M/M/c sizing + full-workflow constraints (`--monte-carlo N`) |
+| `analysis/scenario_explorer.py` | Grid/LHS sweeps and preferred-scenario ranking |
+| `analysis/generate_briefing.py` | HTML/Markdown briefing generator |
+| `analysis/reporting.py` | Report rendering helpers |
 | `analysis/monte_carlo.py` | Optional offload wait distribution sampler |
 | `analysis/regression.py` | Analysis vs sim alignment checks |
 | `analysis/sensitivity.py` | CSV investment sweeps |
 | `docs/CAPACITY_ANALYSIS.md` | Queueing formulas |
+| `docs/BRIEFING.md` | How to produce and refresh briefing artifacts |
 | `docs/INVESTMENT_FRAMEWORK.md` | Which lever to pull when constrained |
 | `docs/ROADMAP.md` | Program phases |
 | `AGENTS.md` | Guide for AI coding agents |
@@ -90,9 +111,10 @@ Use the simulator to find your bottleneck, then:
 
 ```bash
 ./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
+python -m analysis.scenario_explorer --config fixtures/sweep_briefing.yaml -o output/sweep.csv
 ```
 
-Open the CSV in Excel or LibreOffice. See [docs/INVESTMENT_FRAMEWORK.md](docs/INVESTMENT_FRAMEWORK.md).
+Open the CSV in Excel or LibreOffice, or open the HTML briefing. See [docs/INVESTMENT_FRAMEWORK.md](docs/INVESTMENT_FRAMEWORK.md).
 
 ## Issue tracking
 
