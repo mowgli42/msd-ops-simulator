@@ -8,7 +8,7 @@ Use the interactive simulator to see bottlenecks, then the capacity model to siz
 
 ### Configuration and capacity analysis
 
-The v2.1 UI links live sliders to the same M/M/c queueing math as the Python CLI.
+The v2.2 UI links live sliders to the same M/M/c queueing math as the Python CLI, with a pipeline game board and bottleneck report.
 
 | Initial setup | Steady-state run |
 |---------------|------------------|
