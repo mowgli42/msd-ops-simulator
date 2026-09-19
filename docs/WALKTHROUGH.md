@@ -18,7 +18,7 @@ python -m playwright install chromium
 ## Part 1 — Open the simulator
 
 1. Open `index.html` in your browser.
-2. You should see **v2.1** with a **Capacity analysis** banner above the config panel.
+2. You should see **v2.2** with a **Capacity analysis** banner, **Pipeline Board**, and **Device Inspector**.
 
 ![Initial configuration with analysis banner](images/01-initial-config.png)
 
@@ -87,10 +87,28 @@ The pills at the bottom count devices in each of the **11 states** (see `docs/WO
 3. Reduce **Offload Stations** to **1**.
 4. Click **Reset**, then **Start** again.
 5. Observe **OFFLOAD QUEUE** grow and missions slow — offload is the constraint.
+6. Open **Bottleneck Report**: time bars and episode list show how many hours/ticks were spent in `offload` (and peak queue depths).
 
 ![Offload bottleneck](images/03-offload-bottleneck.png)
 
 This matches the analysis model: when `ρ_offload = λ / (S_O × μ) → 1`, the queue backs up.
+
+**Export report** downloads JSON with `hoursByKind`, `tickCounts`, and each episode’s start/end ticks.
+
+---
+
+## Part 4b — Game sandbox (per-device heavy load)
+
+Treat the board like a lightweight ops game:
+
+1. Leave baseline: **8 vehicles**, **20 MSDs**, **2 load / 3 offload**.
+2. Click **Start**, then **Pause**.
+3. Click tokens **#1–#5** (or use **Mix → Heavy**) and set **Data quantity** to **×2.0** in the Device Inspector; leave others at ×1.0.
+4. Click **Start** again. Heavy tokens linger in **OFFLOADING**; the offload queue grows; yellow outlines appear on busy stations.
+5. Select those five again, drop quantity back to **×1.0** live — the queue drains **without Reset**.
+6. Optional: **Step** advances one tick while paused; **+MSD** spawns a READY device; **Mix** randomizes quantities.
+
+The capacity banner may show **Live mix: mean offload … (globals …)** when the fleet is heterogeneous.
 
 ---
 
