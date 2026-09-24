@@ -68,6 +68,20 @@ def test_shared_cabinet_fixture_loads():
     assert params.ports_per_vehicle == 1
 
 
+def test_site_eight_fixture_loads():
+    cfg = load_shared_config(ROOT / "fixtures" / "site-eight.yaml")
+    params = to_ops_parameters(cfg)
+    assert params.vehicles == 8
+    assert params.device_pool == 8
+    assert params.shared_station is True
+    assert params.slots_in_use == 1
+    assert params.cabinet_slots == 2
+    assert params.ports_per_vehicle == 1
+    result = analyze(params)
+    assert result.cabinet_rho is not None
+    assert result.arrival_rate_per_hour == 1.0  # 8 × 3 / 24
+
+
 def test_topology_vsd_mapping_frozen():
     expected = {
         "1-1-1": (1, 1, 1),

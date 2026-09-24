@@ -11,7 +11,8 @@ Notation is **platforms-stations-devices**:
 When `shared_station: true`, **S = `slots_in_use`** (cabinet concurrency), not
 independent `loading_stations + offload_stations`.
 
-Site reference: `../shared-cabinet.yaml` (2 physical slots, 1 in use).
+Site reference: `../shared-cabinet.yaml` (minimal cell) or `../site-eight.yaml`
+(8 platforms, 2 physical slots, 1 in use).
 Demo factory: `../baseline.yaml` (8V / 2L / 3O / 20D) — **not** the site cabinet.
 
 Default comparison horizon: **100 completed mission cycles**.

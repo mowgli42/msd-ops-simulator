@@ -72,7 +72,8 @@ python -m analysis.regression
 ```
 
 `fixtures/baseline.yaml` is the **demo factory**. Site analysis uses
-`fixtures/shared-cabinet.yaml`. Topology codes (`1-1-1`, `2-3-2`, `5-3-5`) live
+`fixtures/shared-cabinet.yaml` (minimal cell) or `fixtures/site-eight.yaml`
+(8 platforms on one cabinet). Topology codes (`1-1-1`, `2-3-2`, `5-3-5`) live
 under `fixtures/topologies/`. Specs: `openspec/`.
 
 Refresh screenshots: `python scripts/capture-screenshots.py` (requires Playwright).
