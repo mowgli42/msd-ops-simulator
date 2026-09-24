@@ -44,7 +44,8 @@ For steady-state sizing, treat both queues as Poisson with rate:
 
 ## Service rates (split M/M/c queues)
 
-Loading and offload are **separate queues** with different service rates:
+Loading and offload are **separate queues** with different service rates **when
+`shared_station` is false** (demo factory / legacy fixtures):
 
 ```text
 μ_L = 1 / T_L   (devices/hour per loading station)
@@ -61,6 +62,49 @@ Offered load (traffic intensity):
 
 If `ρ ≥ 1` on either side, that queue is **saturated** — the bottleneck.
 
+### Shared cabinet (site model)
+
+Real sites often share one Linux cabinet for load and offload. Config:
+
+```yaml
+operations:
+  shared_station: true
+  cabinet_slots: 2      # physical slots
+  slots_in_use: 1       # current policy
+```
+
+When `shared_station` is true, load and offload **compete** for `c = slots_in_use`
+servers. If a slot cannot overlap load∥offload:
+
+```text
+ρ_cabinet = λ × (T_L + T_O) / c
+```
+
+Example: λ=1, T_L=T_O=0.5, c=1 → ρ_cabinet=1.0; c=2 → 0.5.
+
+Independent `ρ_L` / `ρ_O` **understate** occupancy on a shared cabinet — the CLI
+prints `cabinet_rho` and a warning. Bottleneck labels include `shared_station`,
+`offload_time` (long dwell with idle physical slots), `offload`, `devices`,
+`loading`, and `balanced`.
+
+Site fixture: `fixtures/shared-cabinet.yaml`. Demo factory remains
+`fixtures/baseline.yaml` (8V / 2L / 3O / 20D).
+
+Topology codes `V-S-D` (platforms-stations-devices): see
+`fixtures/topologies/README.md`. When shared, **S = slots_in_use**.
+
+### Process-time decomposition
+
+Optional `process:` block derives:
+
+```text
+T_O = T_mount + B_raw × (1 − r) / R_proto + T_sanitize
+T_L = T_write + B_preload / R_write + T_verify
+```
+
+Compression reduces bytes on the wire; it does **not** help sanitize-bound
+offload. If `process` is absent, sliders / high-data mode apply as before.
+
 ### High data volume mode
 
 Continuous video recording can make offload ≈ mission duration. Enable in `fixtures/baseline.yaml`:
@@ -72,6 +116,24 @@ modes:
 ```
 
 When enabled, analysis and the sim use `T_O = T_m × offload_factor` instead of the fixed offload slider.
+
+### Shift-pulse arrivals
+
+Daily mean λ understates last-device wait when everyone lands together:
+
+```text
+N = devices returning in the window  (≈ vehicles if 1 MSD per platform)
+T_clear = ceil(N / c) × T_O
+W_last  = T_clear − T_O
+```
+
+Worked example: 8 returns, c=1, T_O=0.5 h → T_clear=4.0 h, W_last=3.5 h;
+c=2 → T_clear=2.0 h, W_last=1.5 h.
+
+```bash
+python -m analysis.capacity_model --config fixtures/shared-cabinet.yaml \
+  --arrival shift --window-hours 2
+```
 
 ## Erlang C (wait probability)
 
@@ -189,7 +251,30 @@ The sim exposes queue depths and "vehicles waiting" — if analysis says offload
 ## What we deliberately omit (for now)
 
 - Bulk failure / re-sanitize paths  
-- Non-Poisson burst ATO windows (Phase 4 Monte Carlo)  
-- Cost optimization (Phase 3 investment framework)  
+- Cost dollars in the recommend table (v1 is physical packages only)
 
-Keep the model simple; extend only when a requirement forces it.
+Shift-pulse and Monte Carlo are available as optional modes; default analysis
+remains smooth Poisson M/M/c.
+
+## Process-vs-inventory tooling
+
+```bash
+# Site cabinet
+python -m analysis.capacity_model --config fixtures/shared-cabinet.yaml
+
+# Topology shorthand
+python -m analysis.capacity_model --topology 1-1-1
+
+# Wait report (100 mission cycles)
+python -m analysis.wait_report --topology 1-1-1 --missions 100 \
+  -o output/wait-1-1-1.png --csv output/wait-1-1-1.csv
+
+# Compare 1-1-1 / 2-3-2 / 5-3-5
+python -m analysis.compare_topologies --cycles 100 --outdir output/compare-100/
+
+# Recommend buy vs 2nd slot vs cut T_O
+python -m analysis.recommend --config fixtures/shared-cabinet.yaml --cycles 100
+```
+
+OpenSpec + Gherkin: `openspec/specs/process-vs-inventory/spec.md`,
+`openspec/features/*.feature`.

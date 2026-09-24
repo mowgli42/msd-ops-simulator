@@ -167,10 +167,25 @@ Writes PNGs to `docs/images/` for this walkthrough.
 
 ---
 
+## Process-vs-inventory analysis
+
+Site cabinet (not the demo factory):
+
+```bash
+python -m analysis.capacity_model --config fixtures/shared-cabinet.yaml
+python -m analysis.compare_topologies --cycles 100 --outdir output/compare-100/
+python -m analysis.recommend --topology 1-1-1 --cycles 100
+```
+
+OpenSpec: `openspec/specs/process-vs-inventory/spec.md`. Plots land in
+`output/compare-100/` (see that folder's README).
+
+---
+
 ## Next steps (beads)
 
 ```bash
-bd ready    # Phase 1+ tasks: sim/analysis alignment, investment CSV, validation
+bd ready
 ```
 
-See `docs/ROADMAP.md` for the full program.
+See `docs/ROADMAP.md` and GitHub #15–#22 for the process-vs-inventory epic.
