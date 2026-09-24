@@ -1,0 +1,191 @@
+{
+  "commit_message": "beads: process-vs-inventory epic from GitHub #15-22",
+  "nodes": [
+    {
+      "key": "epic-pvi",
+      "title": "Epic: process-vs-inventory analysis and topology comparison plots",
+      "type": "epic",
+      "priority": 0,
+      "description": "Make the analysis stack answer buy-devices vs cut-process-time using shared cabinet, topologies 1-1-1/2-3-2/5-3-5, wait reports, shift pulse, compare plots, and recommend. OpenSpec: openspec/specs/process-vs-inventory/spec.md",
+      "acceptance_criteria": "One command emits analytic+sim metrics per topology; plot artifacts for wait/utilization/cycle time; recommend table chooses buy vs cut T_O vs 2nd slot; docs state baseline.yaml is not the site cabinet.",
+      "labels": [
+        "process-vs-inventory",
+        "analysis"
+      ],
+      "external_ref": "gh-15",
+      "spec_id": "openspec/specs/process-vs-inventory/spec.md"
+    },
+    {
+      "key": "shared-cabinet",
+      "title": "Model shared load/offload cabinet and slots-in-use",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #16. OpsParameters shared_station/cabinet_slots/slots_in_use; cabinet_rho; new bottleneck labels; sim shared slots; CAPACITY_ANALYSIS update.",
+      "acceptance_criteria": "Unit tests: \u03bb=1,T_L=T_O=0.5,c=1\u2192\u03c1=1.0; c=2\u21920.5; high-data T_O=1.8,c=1 unstable; docs updated.",
+      "labels": [
+        "analysis",
+        "queueing"
+      ],
+      "external_ref": "gh-16",
+      "spec_id": "openspec/features/shared-cabinet.feature"
+    },
+    {
+      "key": "topology-fixtures",
+      "title": "Add shared-cabinet.yaml and topology codes 1-1-1, 2-3-2, 5-3-5",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #17. Fixtures + topologies README + --topology CLI + tests freeze V/S/D.",
+      "acceptance_criteria": "Each topology loads via to_ops_parameters; --topology works; README/AGENTS cite shared-cabinet for site analysis.",
+      "labels": [
+        "configuration",
+        "documentation"
+      ],
+      "external_ref": "gh-17",
+      "spec_id": "openspec/features/topology-fixtures.feature"
+    },
+    {
+      "key": "process-decomp",
+      "title": "Decompose process time into bytes, protocol rate, compression, sanitize",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #18. Optional process YAML; effective T_O/T_L; sensitivity --mode process and --mode buy.",
+      "acceptance_criteria": "Double rate halves extract; r=0.5 halves bytes; sanitize-only change does not change extract; docs updated.",
+      "labels": [
+        "analysis",
+        "sensitivity"
+      ],
+      "external_ref": "gh-18",
+      "spec_id": "openspec/features/process-decomposition.feature"
+    },
+    {
+      "key": "wait-report",
+      "title": "Wait accounting + wait_report CLI",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #19. Per-device wait counters in sim_engine; wait_report PNG+CSV over N missions.",
+      "acceptance_criteria": "Stops at N missions; PNG+CSV for 1-1-1; offload-saturated offload\u226bassign wait; tiny pool assign wait dominates.",
+      "labels": [
+        "metrics",
+        "reporting"
+      ],
+      "external_ref": "gh-19",
+      "spec_id": "openspec/features/wait-report.feature"
+    },
+    {
+      "key": "shift-pulse",
+      "title": "Shift-pulse arrival mode",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #20. arrival.mode smooth|shift; T_clear/W_last analytics; sim morning/evening pulse.",
+      "acceptance_criteria": "Smooth default regression-identical; worked examples c=1 and c=2; CLI prints window metrics.",
+      "labels": [
+        "queueing",
+        "analysis"
+      ],
+      "external_ref": "gh-20",
+      "spec_id": "openspec/features/shift-pulse.feature"
+    },
+    {
+      "key": "compare-plots",
+      "title": "Comparison plots: 1-1-1 vs 2-3-2 vs 5-3-5 across 100 cycles",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #21. analysis.compare_topologies CSV + four core PNGs; reuse wait_report.",
+      "acceptance_criteria": "One command produces CSV+4 PNGs; 1-1-1 high-data offload wait dominates; colors steel/grey/amber.",
+      "labels": [
+        "charts",
+        "reporting"
+      ],
+      "external_ref": "gh-21",
+      "spec_id": "openspec/features/compare-topologies.feature"
+    },
+    {
+      "key": "recommend",
+      "title": "analysis.recommend: buy-devices vs 2nd-slot vs cut-T_O",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "epic-pvi",
+      "description": "GitHub #22. Score fixed packages; text/CSV/optional PNG; mark unstable packages.",
+      "acceptance_criteria": "Works on topologies + shared-cabinet; unstable marked; docs examples for long T_O and short pool.",
+      "labels": [
+        "optimization",
+        "reporting"
+      ],
+      "external_ref": "gh-22",
+      "spec_id": "openspec/features/recommend.feature"
+    }
+  ],
+  "edges": [
+    {
+      "from_key": "topology-fixtures",
+      "to_key": "shared-cabinet",
+      "type": "blocks"
+    },
+    {
+      "from_key": "process-decomp",
+      "to_key": "shared-cabinet",
+      "type": "blocks"
+    },
+    {
+      "from_key": "wait-report",
+      "to_key": "shared-cabinet",
+      "type": "blocks"
+    },
+    {
+      "from_key": "wait-report",
+      "to_key": "topology-fixtures",
+      "type": "blocks"
+    },
+    {
+      "from_key": "shift-pulse",
+      "to_key": "shared-cabinet",
+      "type": "blocks"
+    },
+    {
+      "from_key": "compare-plots",
+      "to_key": "wait-report",
+      "type": "blocks"
+    },
+    {
+      "from_key": "compare-plots",
+      "to_key": "topology-fixtures",
+      "type": "blocks"
+    },
+    {
+      "from_key": "compare-plots",
+      "to_key": "process-decomp",
+      "type": "blocks"
+    },
+    {
+      "from_key": "compare-plots",
+      "to_key": "shift-pulse",
+      "type": "blocks"
+    },
+    {
+      "from_key": "recommend",
+      "to_key": "shared-cabinet",
+      "type": "blocks"
+    },
+    {
+      "from_key": "recommend",
+      "to_key": "wait-report",
+      "type": "blocks"
+    },
+    {
+      "from_key": "recommend",
+      "to_key": "process-decomp",
+      "type": "blocks"
+    },
+    {
+      "from_key": "recommend",
+      "to_key": "compare-plots",
+      "type": "blocks"
+    }
+  ]
+}

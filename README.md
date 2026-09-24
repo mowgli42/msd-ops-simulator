@@ -58,14 +58,22 @@ xdg-open index.html
 **Analysis and tests:**
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt matplotlib
 python scripts/sync-config.py
 ./scripts/run-tests.sh
 python -m analysis.capacity_model --config fixtures/baseline.yaml
-python -m analysis.capacity_model --config fixtures/baseline.yaml --monte-carlo 200
+python -m analysis.capacity_model --config fixtures/shared-cabinet.yaml
+python -m analysis.capacity_model --topology 1-1-1
+python -m analysis.wait_report --topology 1-1-1 --missions 100 -o output/wait-1-1-1.png
+python -m analysis.compare_topologies --cycles 100 --outdir output/compare-100/
+python -m analysis.recommend --config fixtures/shared-cabinet.yaml --cycles 100
 python -m analysis.regression
 ./scripts/export-sensitivity.sh stations output/sensitivity-stations.csv
 ```
+
+`fixtures/baseline.yaml` is the **demo factory**. Site analysis uses
+`fixtures/shared-cabinet.yaml`. Topology codes (`1-1-1`, `2-3-2`, `5-3-5`) live
+under `fixtures/topologies/`. Specs: `openspec/`.
 
 Refresh screenshots: `python scripts/capture-screenshots.py` (requires Playwright).
 
@@ -74,8 +82,14 @@ Refresh screenshots: `python scripts/capture-screenshots.py` (requires Playwrigh
 | Path | Purpose |
 |------|---------|
 | `index.html` | Interactive simulator + analysis banner |
-| `fixtures/baseline.yaml` | Shared scenario (20 ticks = 1 hour) |
-| `analysis/capacity_model.py` | M/M/c sizing CLI (`--monte-carlo N` for Poisson validation) |
+| `fixtures/baseline.yaml` | Demo factory scenario (20 ticks = 1 hour) |
+| `fixtures/shared-cabinet.yaml` | Site cabinet (shared load/offload, 1 slot in use) |
+| `fixtures/topologies/` | V-S-D codes `1-1-1`, `2-3-2`, `5-3-5` |
+| `analysis/capacity_model.py` | M/M/c sizing CLI (`--topology`, `--arrival shift`) |
+| `analysis/wait_report.py` | Per-device wait CSV/PNG over N mission cycles |
+| `analysis/compare_topologies.py` | Topology comparison plots |
+| `analysis/recommend.py` | Buy vs 2nd-slot vs cut-T_O table |
+| `openspec/` | OpenSpec + Gherkin for process-vs-inventory |
 | `analysis/monte_carlo.py` | Optional offload wait distribution sampler |
 | `analysis/regression.py` | Analysis vs sim alignment checks |
 | `analysis/sensitivity.py` | CSV investment sweeps |

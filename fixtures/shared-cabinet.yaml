@@ -1,0 +1,42 @@
+# Site cabinet fixture — real ops constraint (NOT the demo factory).
+# One Linux cabinet with 2 physical slots; policy currently mounts ONE MSD.
+# Load and offload compete for the same usable slot(s).
+#
+# Demo factory remains fixtures/baseline.yaml (8V / 2L / 3O / 20D).
+
+scenario_id: shared-cabinet
+
+timing:
+  ticks_per_hour: 20
+  operating_hours_per_day: 24
+
+operations:
+  vehicles: 1
+  missions_per_vehicle_per_day: 3.0
+  ports_per_vehicle: 1
+  device_pool: 2
+  shared_station: true
+  cabinet_slots: 2
+  slots_in_use: 1
+  # Kept for backward-compat loaders; ignored for capacity when shared_station
+  loading_stations: 1
+  offload_stations: 1
+
+durations_hours:
+  mission: 2.0
+  load: 0.5
+  offload: 0.5
+
+modes:
+  high_data_volume: false
+  offload_factor: 0.9
+
+arrival:
+  mode: smooth
+  # mode: shift
+  preload_window_hours: 2
+  offload_window_hours: 2
+
+analysis:
+  utilization_target: 0.85
+  device_buffer_fraction: 0.10

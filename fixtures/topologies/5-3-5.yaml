@@ -1,0 +1,40 @@
+# Topology 5-3-5 = platforms-stations-devices
+# 5 platforms, 3 shared usable slots, 5 devices.
+# Larger fleet where stations are not 1:1 with platforms.
+
+scenario_id: topology-5-3-5
+topology_code: "5-3-5"
+
+timing:
+  ticks_per_hour: 20
+  operating_hours_per_day: 24
+
+operations:
+  vehicles: 5
+  missions_per_vehicle_per_day: 3.0
+  ports_per_vehicle: 1
+  device_pool: 5
+  shared_station: true
+  cabinet_slots: 3
+  slots_in_use: 3
+  loading_stations: 3
+  offload_stations: 3
+
+durations_hours:
+  mission: 2.0
+  load: 0.5
+  offload: 0.5
+
+modes:
+  high_data_volume: false
+  offload_factor: 0.9
+
+arrival:
+  mode: smooth
+  # mode: shift
+  preload_window_hours: 2
+  offload_window_hours: 2
+
+analysis:
+  utilization_target: 0.85
+  device_buffer_fraction: 0.10

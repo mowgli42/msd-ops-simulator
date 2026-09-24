@@ -1,0 +1,43 @@
+# Topology 1-1-1 = platforms-stations-devices
+# 1 platform, 1 shared cabinet slot in use, 1 device.
+# Proves pure serialization (the "locked offload" story when T_O is long).
+#
+# When shared_station is true, S = usable cabinet slots (slots_in_use).
+# Horizon for compare plots: 100 completed mission cycles (not ticks).
+
+scenario_id: topology-1-1-1
+topology_code: "1-1-1"
+
+timing:
+  ticks_per_hour: 20
+  operating_hours_per_day: 24
+
+operations:
+  vehicles: 1
+  missions_per_vehicle_per_day: 3.0
+  ports_per_vehicle: 1
+  device_pool: 1
+  shared_station: true
+  cabinet_slots: 2
+  slots_in_use: 1
+  loading_stations: 1
+  offload_stations: 1
+
+durations_hours:
+  mission: 2.0
+  load: 0.5
+  offload: 0.5
+
+modes:
+  high_data_volume: false
+  offload_factor: 0.9
+
+arrival:
+  mode: smooth
+  # mode: shift
+  preload_window_hours: 2
+  offload_window_hours: 2
+
+analysis:
+  utilization_target: 0.85
+  device_buffer_fraction: 0.10

@@ -12,12 +12,18 @@ The codebase is structured to be **easy for Cursor and other AI agents to unders
 |-------|---------|
 | `index.html` | Timer-driven 11-state discrete simulator (main UI) |
 | `docs/WORKFLOW.md` | State machine reference — read before changing sim logic |
-| `fixtures/baseline.yaml` | Shared scenario — hours + tick mapping (`ticks_per_hour: 20`) |
+| `fixtures/baseline.yaml` | Demo factory — hours + tick mapping (`ticks_per_hour: 20`) |
+| `fixtures/shared-cabinet.yaml` | Site cabinet (shared station, 1 of 2 slots) |
+| `fixtures/topologies/` | Comparison series `1-1-1` / `2-3-2` / `5-3-5` |
 | `fixtures/regression_scenarios.yaml` | Analysis vs sim alignment cases |
 | `scripts/sync-config.py` | Regenerates `js/shared-config.js` after YAML edits |
 | `js/capacity-model.js` | Browser port of `analysis/capacity_model.py` |
 | `js/shared-config.js` | Auto-generated sim defaults from YAML |
 | `analysis/capacity_model.py` | M/M/c queue sizing and bottleneck detection (`--monte-carlo N`) |
+| `analysis/wait_report.py` | Per-device wait hours over N completed missions |
+| `analysis/compare_topologies.py` | Topology comparison CSV + PNGs |
+| `analysis/recommend.py` | Buy-devices vs 2nd-slot vs cut-T_O |
+| `openspec/` | OpenSpec + Gherkin (process-vs-inventory) |
 | `analysis/monte_carlo.py` | Poisson M/M/c offload wait distribution (validation) |
 | `analysis/config_loader.py` | YAML loader + tick ↔ hour conversion |
 | `analysis/sim_engine.py` | Python discrete sim (regression harness) |
