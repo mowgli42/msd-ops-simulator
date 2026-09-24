@@ -13,7 +13,8 @@ The codebase is structured to be **easy for Cursor and other AI agents to unders
 | `index.html` | Timer-driven 11-state discrete simulator (main UI) |
 | `docs/WORKFLOW.md` | State machine reference — read before changing sim logic |
 | `fixtures/baseline.yaml` | Demo factory — hours + tick mapping (`ticks_per_hour: 20`) |
-| `fixtures/shared-cabinet.yaml` | Site cabinet (shared station, 1 of 2 slots) |
+| `fixtures/shared-cabinet.yaml` | Site cabinet minimal cell (shared station, 1 of 2 slots) |
+| `fixtures/site-eight.yaml` | Live fleet: 8 platforms on one shared cabinet |
 | `fixtures/topologies/` | Comparison series `1-1-1` / `2-3-2` / `5-3-5` |
 | `fixtures/regression_scenarios.yaml` | Analysis vs sim alignment cases |
 | `scripts/sync-config.py` | Regenerates `js/shared-config.js` after YAML edits |

@@ -87,8 +87,8 @@ prints `cabinet_rho` and a warning. Bottleneck labels include `shared_station`,
 `offload_time` (long dwell with idle physical slots), `offload`, `devices`,
 `loading`, and `balanced`.
 
-Site fixture: `fixtures/shared-cabinet.yaml`. Demo factory remains
-`fixtures/baseline.yaml` (8V / 2L / 3O / 20D).
+Site fixture: `fixtures/shared-cabinet.yaml` (minimal) or `fixtures/site-eight.yaml`
+(8 platforms on one cabinet). Demo factory remains `fixtures/baseline.yaml`.
 
 Topology codes `V-S-D` (platforms-stations-devices): see
 `fixtures/topologies/README.md`. When shared, **S = slots_in_use**.

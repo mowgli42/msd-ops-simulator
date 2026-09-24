@@ -85,25 +85,71 @@ def _write_csv(rows: list[dict], path: Path) -> None:
 
 
 def _plot_wait_by_stage(rows: list[dict], path: Path) -> None:
+    """Grouped bars per topology: solid = baseline T_O, hatched = high-data T_O."""
     import matplotlib.pyplot as plt
     import numpy as np
 
     baseline = [r for r in rows if r["mode"] == "baseline"]
+    high = {r["topology"]: r for r in rows if r["mode"] == "high-data"}
     labels = [r["topology"] for r in baseline]
     x = np.arange(len(labels))
-    width = 0.25
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.bar(x - width, [r["wait_load_hours_total"] for r in baseline], width, label="load-wait", color=COLOR_LOAD)
-    ax.bar(x, [r["wait_assign_hours_total"] for r in baseline], width, label="assign-wait", color=COLOR_ASSIGN)
-    ax.bar(x + width, [r["wait_offload_hours_total"] for r in baseline], width, label="offload-wait", color=COLOR_OFFLOAD)
+    # Six slots per topology cluster: baseline L/A/O then high-data L/A/O
+    width = 0.12
+    offsets = [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+
+    def series(mode_rows: list[dict], key: str) -> list[float]:
+        return [r[key] for r in mode_rows]
+
+    bl_load = series(baseline, "wait_load_hours_total")
+    bl_assign = series(baseline, "wait_assign_hours_total")
+    bl_off = series(baseline, "wait_offload_hours_total")
+    hd_rows = [high.get(t, {}) for t in labels]
+    hd_load = [r.get("wait_load_hours_total", 0) for r in hd_rows]
+    hd_assign = [r.get("wait_assign_hours_total", 0) for r in hd_rows]
+    hd_off = [r.get("wait_offload_hours_total", 0) for r in hd_rows]
+
+    ax.bar(x + offsets[0] * width, bl_load, width, label="load (baseline)", color=COLOR_LOAD)
+    ax.bar(x + offsets[1] * width, bl_assign, width, label="assign (baseline)", color=COLOR_ASSIGN)
+    ax.bar(x + offsets[2] * width, bl_off, width, label="offload (baseline)", color=COLOR_OFFLOAD)
+    ax.bar(
+        x + offsets[3] * width,
+        hd_load,
+        width,
+        label="load (high-data)",
+        color=COLOR_LOAD,
+        hatch="//",
+        edgecolor="black",
+        linewidth=0.4,
+    )
+    ax.bar(
+        x + offsets[4] * width,
+        hd_assign,
+        width,
+        label="assign (high-data)",
+        color=COLOR_ASSIGN,
+        hatch="//",
+        edgecolor="black",
+        linewidth=0.4,
+    )
+    ax.bar(
+        x + offsets[5] * width,
+        hd_off,
+        width,
+        label="offload (high-data)",
+        color=COLOR_OFFLOAD,
+        hatch="//",
+        edgecolor="black",
+        linewidth=0.4,
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    title = "Wait by stage after 100 cycles"
+    title = "Wait by stage after 100 cycles (baseline vs high-data)"
     if baseline and baseline[0].get("_shared"):
-        title += " (S = shared cabinet slots)"
+        title += " — S = shared cabinet slots"
     ax.set_title(title)
     ax.set_ylabel("hours")
-    ax.legend()
+    ax.legend(fontsize=8, ncol=2)
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
